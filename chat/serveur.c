@@ -22,9 +22,9 @@ int main( void )
                                              * contenant adresse du client  */
     socklen_t          taille;              /* Taille pour accept()         */
     ssize_t            taille_recue;        /* Quantite d'octets recue      */
-    char               buffer_message[128]; /* Buffer pour mettre le        *
+    char               buffer_message[1000]; /* Buffer pour mettre le        *
                                              * message recu et l'afficher   */
-
+	ssize_t            taille_envoyee;
 
     /* Creation de la socket; AF_INET -> IPv4; SOCK_STREAM -> TCP           */
     socket_passive = socket( AF_INET, SOCK_STREAM, 0 );
@@ -47,8 +47,9 @@ int main( void )
      * 0.0.0.0 signifie "ecoute sur n'importe quelle IP de la machine".     */
     adresse_ecoute.sin_addr.s_addr = 0;
 
+
     /* On lie la socket a l'adresse qu'on vient de configurer avec bind().  */
-    if (    bind(  socket_passive
+    if ( bind(  socket_passive
                  , (struct sockaddr *) &adresse_ecoute
                  , sizeof( adresse_ecoute ) )
          == -1 )
@@ -71,47 +72,58 @@ int main( void )
     /* On traite nos clients dans une boucle infinie.                       */
     while ( 1 )
     {
-        /* On prend un nouveau client. Cela nous cree une nouvelle socket,  *
-         * juste pour lui. Au passage, on attrape son adresse.              */
-        socket_client = accept(  socket_passive
-                               , (struct sockaddr *) &adresse_client
-                               , &taille );
-        if ( socket_client == -1 )
-        {
-            perror( "accept()" );
-            exit( -1 );
-        }
 
-        printf(  "Un client s'est connecté... %s : %d\n"
-               , inet_ntop(  AF_INET
-                           , &(adresse_client.sin_addr)
-                           , buffer_adresse
-                           , 128 )
-               , adresse_client.sin_port );
+	        /* On prend un nouveau client. Cela nous cree une nouvelle socket,  *
+	         * juste pour lui. Au passage, on attrape son adresse.              */
+	        socket_client = accept(  socket_passive
+	                               , (struct sockaddr *) &adresse_client
+	                               , &taille );
+	        if ( socket_client == -1 )
+	        {
+	            perror( "accept()" );
+	            exit( -1 );
+	        }
 
-        /* C'est plus propre, on ne sait pas a quoi ressemble de message.   */
-        memset( buffer_message, 0, sizeof( buffer_message ) );
-        taille_recue = recv( socket_client, buffer_message, 128, 0 );
-        
-        if ( taille_recue == -1 )
-        {
-            perror( "recv()" );
-            exit( -1 );
-        }
+	        printf(  "Un client s'est connecté %s : %d\n"
+	               , inet_ntop(  AF_INET
+	                           , &(adresse_client.sin_addr)
+	                           , buffer_adresse
+	                           , 128 )
+	               , adresse_client.sin_port );
 
-        /* Au pire on affichera n'importe quoi, sans deborder du buffer.    */
-        buffer_message[127] = '\0'; 
+	        // C'est plus propre, on ne sait pas a quoi ressemble le message.   
+	        memset( buffer_message, 0, sizeof( buffer_message ) );
+	        taille_recue = recv( socket_client, buffer_message, 1000, 0 );
+	        
+	        if ( taille_recue == -1 )
+	        {
+	            perror( "recv()" );
+	            exit( -1 );
+	        }
 
-        printf(  "Message recu (taille %ld) :\n[%s]\n"
-               , taille_recue
-               , buffer_message );
+	        // Au pire on affichera n'importe quoi, sans deborder du buffer.    
+	        buffer_message[999] = '\0'; 
+
+	        printf(  "%s\n", buffer_message );
 
 
-        /* A ne pas oublier.                                                */
+	       	taille_envoyee = send(  socket_client
+		                          , buffer_message 
+		                          , strlen(buffer_message)
+		                          , 0 );
+
+		    if ( taille_envoyee == -1 )
+		    {
+		        perror( "send()" );
+		        exit( -1 );
+		    }
+			
+		
+        // A ne pas oublier.                                                 
         close( socket_client );
     }
 
-    /* A ne pas oublier.                                                    */
+    // A ne pas oublier.                                                   
     close( socket_passive );
 
     return 0;
