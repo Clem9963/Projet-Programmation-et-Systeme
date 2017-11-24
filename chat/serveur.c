@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
+#define TAILLE_MESSAGE 1000
 
 int main( void )
 {
@@ -22,7 +23,7 @@ int main( void )
                                              * contenant adresse du client  */
     socklen_t          taille;              /* Taille pour accept()         */
     ssize_t            taille_recue;        /* Quantite d'octets recue      */
-    char               buffer_message[1000]; /* Buffer pour mettre le        *
+    char *buffer_message = malloc(sizeof(char) * TAILLE_MESSAGE); /* Buffer pour mettre le        *
                                              * message recu et l'afficher   */
 	ssize_t            taille_envoyee;
 
@@ -47,7 +48,6 @@ int main( void )
      * 0.0.0.0 signifie "ecoute sur n'importe quelle IP de la machine".     */
     adresse_ecoute.sin_addr.s_addr = 0;
 
-
     /* On lie la socket a l'adresse qu'on vient de configurer avec bind().  */
     if ( bind(  socket_passive
                  , (struct sockaddr *) &adresse_ecoute
@@ -69,10 +69,10 @@ int main( void )
 
     taille = sizeof( struct sockaddr_in );
 
+
     /* On traite nos clients dans une boucle infinie.                       */
     while ( 1 )
     {
-
 	        /* On prend un nouveau client. Cela nous cree une nouvelle socket,  *
 	         * juste pour lui. Au passage, on attrape son adresse.              */
 	        socket_client = accept(  socket_passive
@@ -91,9 +91,10 @@ int main( void )
 	                           , 128 )
 	               , adresse_client.sin_port );
 
+
 	        // C'est plus propre, on ne sait pas a quoi ressemble le message.   
 	        memset( buffer_message, 0, sizeof( buffer_message ) );
-	        taille_recue = recv( socket_client, buffer_message, 1000, 0 );
+	        taille_recue = recv( socket_client, buffer_message, TAILLE_MESSAGE, 0 );
 	        
 	        if ( taille_recue == -1 )
 	        {
@@ -102,12 +103,12 @@ int main( void )
 	        }
 
 	        // Au pire on affichera n'importe quoi, sans deborder du buffer.    
-	        buffer_message[999] = '\0'; 
+	        //buffer_message[999] = '\0'; 
 
 	        printf(  "%s\n", buffer_message );
 
 
-	       	taille_envoyee = send(  socket_client
+	       	/*taille_envoyee = send(  socket_client
 		                          , buffer_message 
 		                          , strlen(buffer_message)
 		                          , 0 );
@@ -116,8 +117,8 @@ int main( void )
 		    {
 		        perror( "send()" );
 		        exit( -1 );
-		    }
-			
+		    }*/
+		
 		
         // A ne pas oublier.                                                 
         close( socket_client );
