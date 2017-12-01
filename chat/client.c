@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #define TAILLE_BUF 1000
+#define TAILLE_PSEUDO 16
 
 int connect_socket(char *adresse, int port);
 void read_serveur(int sock, char *buffer);
@@ -47,6 +48,7 @@ int main(int argc, char *argv[]){
 		{
 			fgets(buffer,sizeof(buffer),  stdin);
 			buffer[strlen(buffer) - 1] = '\0';
+			printf("Vous : %s\n", buffer);
 			write_serveur(sock, buffer);
 		}
 	}
@@ -96,7 +98,7 @@ void read_serveur(int sock, char *buffer){
 	//pour gerer la deconnexion du serveur
 	else if(taille_recue == 0)
 	{
-		printf("la connexion au serveur est perdue\n");
+		printf("la connexion au serveur a été interrompue\n");
 		exit(-1);
 	}
 	else

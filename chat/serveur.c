@@ -10,16 +10,15 @@
 #define NB_CLIENT_MAX 3
 #define PORT 54888
 #define TAILLE_BUF 1000
+#define TAILLE_PSEUDO 16
 
 void ouvertureServeur(int sock);
-void ecouteConnexion(int csock, char *buffer);
+void ecouteConnexion(int csock, char *buffer, int indice, char **listePseudo);
 void envoiMessage(int csock, char *buffer);
-void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients);
-void deconnexionClient(int * listeSock, int indice, int *nbClients);
+void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, char **listePseudo);
+void deconnexionClient(int * listeSock, int indice, int *nbClients, char **listePseudo);
 void envoiMessageAutresClients(int *listeSock, int indice, char *buffer, int *nbClients);
-
-//*********gerer la liste des pseudos
-
+void concatener(char *buffer, char *pseudo);
 
 int main(){
 	
@@ -34,6 +33,10 @@ int main(){
 
 	int i;
 	int *listeSock = malloc(sizeof(int) * NB_CLIENT_MAX);
+
+	char **listePseudo = malloc(sizeof(char *) * NB_CLIENT_MAX);	
+    for (i = 0; i < NB_CLIENT_MAX; i++)
+        listePseudo[i] = malloc(sizeof(char)* 16);
 	
 	//demarrage du serveur
 	ouvertureServeur(sockServeur);
@@ -58,10 +61,13 @@ int main(){
 		if(FD_ISSET(sockServeur, &readfds))
 		{
 			listeSock[*nbClients] = accept(sockServeur, (struct sockaddr *)&csin, &taille);
-			ecouteConnexion(listeSock[*nbClients], buffer);
+			ecouteConnexion(listeSock[*nbClients], buffer, *nbClients, listePseudo);
 			
+			//message de connexion pour les autres clients
+			sprintf(buffer, "%s est connecté", listePseudo[*nbClients]);
+
 			//envoi un message aux autres pour dire la connexion d'un client
-			envoiMessageAutresClients(listeSock, *nbClients, "Un client s'est connecté\n", nbClients);
+			envoiMessageAutresClients(listeSock, *nbClients, buffer, nbClients);
 		
 			(*nbClients)++;
 		}
@@ -72,7 +78,7 @@ int main(){
 			{
 				if(FD_ISSET(listeSock[i], &readfds))
 				{
-					ecouteMessage(listeSock, i, buffer, nbClients);
+					ecouteMessage(listeSock, i, buffer, nbClients, listePseudo);
 				}
 			}
 		}
@@ -102,7 +108,7 @@ void ouvertureServeur(int sock){
 	}
 }
 
-void ecouteConnexion(int csock, char *buffer){
+void ecouteConnexion(int csock, char *buffer, int indice, char **listePseudo){
 	ssize_t taille_recue;
 	char *bienvenue = malloc(sizeof(char) * (strlen(buffer) + 10)); 
 
@@ -121,6 +127,9 @@ void ecouteConnexion(int csock, char *buffer){
 		sprintf(bienvenue, "Bienvenue %s", buffer);
 		envoiMessage(csock, bienvenue);//message de bienvenue
 		free(bienvenue);
+
+		//isncrire dans la liste des pseudos
+		strcpy(listePseudo[indice], buffer);
 	}
 }
 
@@ -141,7 +150,7 @@ void envoiMessageAutresClients(int *listeSock, int indice, char *buffer, int *nb
 	}
 }
 
-void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients){
+void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, char **listePseudo){
 	ssize_t taille_recue;
 	int i;
 
@@ -155,20 +164,22 @@ void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients){
 	//pour gerer la deconnexion directe du client
 	else if(taille_recue == 0)
 	{
-		envoiMessageAutresClients(listeSock, indice, "Un client s'est déconnecté\n", nbClients);
-		printf("Un client s'est deconnecté\n");
-		deconnexionClient(listeSock, indice, nbClients);
+		sprintf(buffer, "%s s'est déconnecté", listePseudo[indice]);
+		envoiMessageAutresClients(listeSock, indice, buffer, nbClients);
+		printf("%s\n",buffer);
+		deconnexionClient(listeSock, indice, nbClients, listePseudo);
 	}
 
 	else
 	{
 		buffer[taille_recue] = '\0';
+		concatener(buffer, listePseudo[indice]);
 		printf("%s\n", buffer);
 		envoiMessageAutresClients(listeSock, indice, buffer, nbClients);
 	}
 }
 
-void deconnexionClient(int * listeSock, int indice, int *nbClients){
+void deconnexionClient(int * listeSock, int indice, int *nbClients, char **listePseudo){
 	int i, j;
 
 	if(close(listeSock[indice]) == -1)// ferme le socket
@@ -177,8 +188,9 @@ void deconnexionClient(int * listeSock, int indice, int *nbClients){
 		exit(-1);
 	}
 	listeSock[indice] = 0;
+	strcpy(listePseudo[indice], "");
 
-	//todo refaire la listeSock bien comme il faut
+	// refaire la listeSock et listepseudo bien comme il faut
 	for(i = 0; i < *nbClients; i++)
 	{
 		if(listeSock[i] == 0)
@@ -189,6 +201,8 @@ void deconnexionClient(int * listeSock, int indice, int *nbClients){
 				{
 					listeSock[i] = listeSock[j];
 					listeSock[j] = 0;
+					strcpy(listePseudo[i], listePseudo[j]);
+					strcpy(listePseudo[j], "");
 				}
 				break;
 			}
@@ -196,4 +210,11 @@ void deconnexionClient(int * listeSock, int indice, int *nbClients){
 	}
 
 	(*nbClients)--;// diminue le nombre de clients
+}
+
+void concatener(char *buffer, char *pseudo){
+	char *temp = malloc(sizeof(char) * (TAILLE_BUF + TAILLE_PSEUDO));
+	sprintf(temp, "%s : %s", pseudo, buffer);
+	strcpy(buffer, temp);
+	free(temp);
 }
