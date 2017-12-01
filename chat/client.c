@@ -7,12 +7,14 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#define TAILLE_BUF 1000
+
 int connect_socket(char *adresse, int port);
 void read_serveur(int sock, char *buffer);
 void write_serveur(int sock, char *buffer);
 
 int main(int argc, char *argv[]){
-	char buffer[1000];
+	char buffer[TAILLE_BUF];
 	int sock;
 	char * pseudo = argv[1];
 	fd_set readfds;
@@ -84,11 +86,17 @@ int connect_socket(char *adresse, int port){
 
 void read_serveur(int sock, char *buffer){
 	int taille_recue;
-	taille_recue = recv(sock, buffer, 1000, 0);
+	taille_recue = recv(sock, buffer, TAILLE_BUF, 0);
 
 	if(taille_recue == -1)
 	{
 		perror("recv()");
+		exit(-1);
+	}
+	//pour gerer la deconnexion du serveur
+	else if(taille_recue == 0)
+	{
+		printf("la connexion au serveur est perdue\n");
 		exit(-1);
 	}
 	else

@@ -7,52 +7,68 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
- #define NB_CLIENT_MAX 3
+#define NB_CLIENT_MAX 3
+#define PORT 54888
+#define TAILLE_BUF 1000
 
 void ouvertureServeur(int sock);
 void ecouteConnexion(int csock, char *buffer);
 void envoiMessage(int csock, char *buffer);
-void ecouteMessage(int *listeSock, int indice, char *buffer, int nbClients);
+void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients);
+void deconnexionClient(int * listeSock, int indice, int *nbClients);
+void envoiMessageAutresClients(int *listeSock, int indice, char *buffer, int *nbClients);
+
+//*********gerer la liste des pseudos
+
 
 int main(){
 	
 	int sockServeur = socket(AF_INET, SOCK_STREAM, 0); /* créé un socket TCP */
-	char buffer[1000];
+	char buffer[TAILLE_BUF];
 	fd_set readfds;
 	socklen_t taille;
 	struct sockaddr_in csin; 
-	int nbClients = 0;
+	
+	int nul = 0;
+	int *nbClients = &nul;
+
 	int i;
 	int *listeSock = malloc(sizeof(int) * NB_CLIENT_MAX);
 	
+	//demarrage du serveur
 	ouvertureServeur(sockServeur);
 	
 	taille = sizeof( struct sockaddr_in );
 	
-	
+	//boucle d'ecoute
 	while(1)
 	{
 		FD_ZERO(&readfds);
 		FD_SET(sockServeur, &readfds);
-		for(i = 0; i < nbClients;i++)
+		for(i = 0; i < *nbClients;i++)
 			FD_SET(listeSock[i], &readfds);	
 		
-		if(select(sockServeur + nbClients + 1, &readfds, NULL, NULL, NULL) == -1)
+		if(select(sockServeur + (*nbClients) + 1, &readfds, NULL, NULL, NULL) == -1)
 		{
 			perror("select()");
 			exit(-1);
 		}
-				
+		
+		//ecoute une connexion de client
 		if(FD_ISSET(sockServeur, &readfds))
 		{
-			listeSock[nbClients] = accept(sockServeur, (struct sockaddr *)&csin, &taille);
-			ecouteConnexion(listeSock[nbClients], buffer);
-			nbClients++;
+			listeSock[*nbClients] = accept(sockServeur, (struct sockaddr *)&csin, &taille);
+			ecouteConnexion(listeSock[*nbClients], buffer);
+			
+			//envoi un message aux autres pour dire la connexion d'un client
+			envoiMessageAutresClients(listeSock, *nbClients, "Un client s'est connecté\n", nbClients);
+		
+			(*nbClients)++;
 		}
+		//ecoute les sockets clients
 		else
 		{
-			
-			for (i = 0; i < nbClients; i++)
+			for (i = 0; i < *nbClients; i++)
 			{
 				if(FD_ISSET(listeSock[i], &readfds))
 				{
@@ -71,7 +87,7 @@ int main(){
 void ouvertureServeur(int sock){
 	struct sockaddr_in sin;
 	sin.sin_addr.s_addr = htonl(INADDR_ANY); /* on accepte toute adresse */
-	sin.sin_port = htons(54888);
+	sin.sin_port = htons(PORT);
 	sin.sin_family = AF_INET;
 	if(bind (sock, (struct sockaddr*) &sin, sizeof(sin)) == -1) /* on lie le socket à sin */
 	{
@@ -90,10 +106,11 @@ void ecouteConnexion(int csock, char *buffer){
 	ssize_t taille_recue;
 	char *bienvenue = malloc(sizeof(char) * (strlen(buffer) + 10)); 
 
-	taille_recue = recv(csock, buffer, 1000, 0);
+	taille_recue = recv(csock, buffer, TAILLE_BUF, 0);
 	
 	if(taille_recue == -1)
 	{
+		close(csock);
 		perror("recv()");
 		exit(-1);
 	}
@@ -101,7 +118,7 @@ void ecouteConnexion(int csock, char *buffer){
 	{
 		buffer[taille_recue] = '\0';
 		printf("%s est connecté\n",buffer);
-		sprintf(bienvenue, "bienvenue %s", buffer);
+		sprintf(bienvenue, "Bienvenue %s", buffer);
 		envoiMessage(csock, bienvenue);//message de bienvenue
 		free(bienvenue);
 	}
@@ -115,34 +132,68 @@ void envoiMessage(int csock, char *buffer){
 	}
 }
 
-void ecouteMessage(int *listeSock, int indice, char *buffer, int nbClients){
+void envoiMessageAutresClients(int *listeSock, int indice, char *buffer, int *nbClients){
+	int i;
+	for (i = 0; i < *nbClients; i++)
+	{
+		if(i != indice)
+			envoiMessage(listeSock[i], buffer);//retransmet le message aux autres
+	}
+}
+
+void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients){
 	ssize_t taille_recue;
 	int i;
 
-	taille_recue = recv(listeSock[indice], buffer, 1000, 0);
+	taille_recue = recv(listeSock[indice], buffer, TAILLE_BUF, 0);
 	
 	if(taille_recue == -1)
 	{
 		perror("recv()");
 		exit(-1);
 	}
+	//pour gerer la deconnexion directe du client
+	else if(taille_recue == 0)
+	{
+		envoiMessageAutresClients(listeSock, indice, "Un client s'est déconnecté\n", nbClients);
+		printf("Un client s'est deconnecté\n");
+		deconnexionClient(listeSock, indice, nbClients);
+	}
+
 	else
 	{
 		buffer[taille_recue] = '\0';
 		printf("%s\n", buffer);
-		for (i = 0; i < nbClients; i++)
-		{
-			if(i != indice)
-				envoiMessage(listeSock[i], buffer);//retransmet le message aux autres
-		}
+		envoiMessageAutresClients(listeSock, indice, buffer, nbClients);
 	}
 }
 
+void deconnexionClient(int * listeSock, int indice, int *nbClients){
+	int i, j;
 
+	if(close(listeSock[indice]) == -1)// ferme le socket
+	{
+		perror("close()");
+		exit(-1);
+	}
+	listeSock[indice] = 0;
 
+	//todo refaire la listeSock bien comme il faut
+	for(i = 0; i < *nbClients; i++)
+	{
+		if(listeSock[i] == 0)
+		{
+			for (j=i+1;j<*nbClients;j++)
+			{
+				if(listeSock[j] != 0)
+				{
+					listeSock[i] = listeSock[j];
+					listeSock[j] = 0;
+				}
+				break;
+			}
+		}
+	}
 
-
-
-
-
-
+	(*nbClients)--;// diminue le nombre de clients
+}
