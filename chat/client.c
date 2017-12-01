@@ -9,7 +9,10 @@
 
 #define TAILLE_BUF 1000
 #define TAILLE_PSEUDO 16
+#define PORT 54888
 
+char *demandeIP();
+char *demandePseudo();
 int connect_socket(char *adresse, int port);
 void read_serveur(int sock, char *buffer);
 void write_serveur(int sock, char *buffer);
@@ -17,17 +20,12 @@ void write_serveur(int sock, char *buffer);
 int main(int argc, char *argv[]){
 	char buffer[TAILLE_BUF];
 	int sock;
-	char * pseudo = argv[1];
-	fd_set readfds;
-
-	if(argc != 4)
-	{
-		printf("\nl'appel doit etre du style ./client pseudo ip port \n");
-		exit(-1);
-	}		
+	char * pseudo = demandePseudo();
+	char *ipAdresse = demandeIP();
+	fd_set readfds;	
 	
-	sock = connect_socket(argv[2], atoi(argv[3]));	
-	write_serveur(sock, pseudo);
+	sock = connect_socket(ipAdresse, PORT);	
+	write_serveur(sock, pseudo); //envoi le pseudo au serveur
 
 	while(1)
 	{
@@ -48,7 +46,7 @@ int main(int argc, char *argv[]){
 		{
 			fgets(buffer,sizeof(buffer),  stdin);
 			buffer[strlen(buffer) - 1] = '\0';
-			printf("Vous : %s\n", buffer);
+			//printf("Vous : %s\n", buffer);
 			write_serveur(sock, buffer);
 		}
 	}
@@ -114,4 +112,35 @@ void write_serveur(int sock, char *buffer){
 		perror("send()");
 		exit(-1);
 	}
+}
+
+char *demandeIP(){
+	char *adresseIP = malloc(sizeof(char) * 16);
+
+	printf("\nAdresse IP du serveur : ");
+    scanf("%s",adresseIP);
+    
+    if(strlen(adresseIP) > 15 || strlen(adresseIP) < 7)
+    {
+        fprintf( stderr, "Mauvaise adresse IP...\n" );
+		exit(-1);
+    }
+
+    return adresseIP;
+}
+
+char *demandePseudo(){
+	char *pseudo = malloc(sizeof(char) * 16);
+
+	printf("\nVotre pseudo : ");
+    scanf("%s",pseudo);
+
+    while(strlen(pseudo) > 15)
+    {
+    	printf("\nVotre pseudo est trop long (au max 15 caracteres)");
+    	printf("\nVotre pseudo : ");
+    	scanf("%s",pseudo);
+    }
+
+    return pseudo;
 }
