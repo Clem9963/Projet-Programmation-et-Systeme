@@ -46,7 +46,6 @@ int main(int argc, char *argv[]){
 		{
 			fgets(buffer,sizeof(buffer),  stdin);
 			buffer[strlen(buffer) - 1] = '\0';
-			//printf("Vous : %s\n", buffer);
 			write_serveur(sock, buffer);
 		}
 	}

@@ -106,6 +106,7 @@ void ouvertureServeur(int sock){
 		perror("listen");
 		exit(-1);
 	}
+	printf("Le serveur est opérationnel\n");
 }
 
 void ecouteConnexion(int csock, char *buffer, int indice, char **listePseudo){
