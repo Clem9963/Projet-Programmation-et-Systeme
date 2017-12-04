@@ -1,30 +1,28 @@
 # Choix des arguments pour le compilateur
 
-COMPILER = gcc
-BUILD = debug
-LIB = shared
+COMPILER=gcc
+BUILD=debug
+LIB=shared
 
-ifeq ($(DEBUG),debug)
-CFLAGS = -Wall -g
-else
-CFLAGS = -Wall
+ifeq ($(BUILD),debug)
+	CFLAGS=-Wall -Wextra -g
 endif
 
 ifeq ($(LIB),static)
-LFLAGS = -static
+	LFLAGS=-static
 endif
 
 # Règles
-all : main.o fonctions.o
-	$(COMPILER) $(LFLAGS) $(CFLAGS) main.o fonctions.o -o executable.bin
+all : Object_files/main.o Object_files/fonctions.o
+	$(COMPILER) $(LFLAGS) $(CFLAGS) Object_files/main.o Object_files/fonctions.o -o executable.bin
 	@echo
 	@echo Exécutable généré via $(COMPILER) en mode $(BUILD) $(LIB)
 
-main.o : main.c
-	$(COMPILER) $(LFLAGS) $(CFLAGS) -I Headers -c main.c -o main.o
+Object_files/main.o : main.c
+	$(COMPILER) $(LFLAGS) $(CFLAGS) -I Headers -c main.c -o Object_files/main.o
  
-fonctions.o : Sources/fonctions.c
-	$(COMPILER) $(LFLAGS) $(CFLAGS) -I Headers -c Sources/fonctions.c -o fonctions.o
+Object_files/fonctions.o : Sources/fonctions.c
+	$(COMPILER) $(LFLAGS) $(CFLAGS) -I Headers -c Sources/fonctions.c -o Object_files/fonctions.o
 
 # Suppression des fichiers objets
 
