@@ -28,6 +28,7 @@ int main(int argc, char *argv[]){
 	int *ligne = &lig;
 	char * pseudo = demandePseudo();
 	char *ipAdresse = demandeIP();
+	char **conversation;
 	fd_set readfds;	
 	
 
@@ -39,8 +40,8 @@ int main(int argc, char *argv[]){
 	initInterface(fenHaut, fenBas);
 
     //creation de la conversation
-    char **conversation = initConv();
-	
+    conversation = initConv();
+
 	sock = connect_socket(ipAdresse, PORT);	//connexion au serveur
 	write_serveur(sock, pseudo); //envoi le pseudo au serveur
 	
@@ -51,7 +52,7 @@ int main(int argc, char *argv[]){
 	//boucle du chat
 	while(1)
 	{
-		move(LINES - 2, 17);//se positionn au bon endroit pour ecrire le message
+		move(LINES - 2, 11);//se positionn au bon endroit pour ecrire le message
 		FD_ZERO(&readfds);
 		FD_SET(STDIN_FILENO, &readfds);
 		FD_SET(sock, &readfds);
@@ -68,16 +69,24 @@ int main(int argc, char *argv[]){
 		}
 		else if(FD_ISSET(STDIN_FILENO, &readfds))
 		{
-			getstr(buffer);
+			getnstr(buffer, COLS - 13); //bloque si la ligne est remplie
 			buffer[strlen(buffer)] = '\0';
 			
-			// ****todo: faire si le message est stop
-
-			write_serveur(sock, buffer); //envoi le message au serveur
-			
-			//ecrit le message dans la conversation en rajouter "vous" devant
-			concatener(buffer, "Vous");
-			ecritDansConv(buffer, conversation, ligne, fenHaut, fenBas);
+			//se déconnecte du chat si le message est deconnexion
+			if(strcmp(buffer, "deconnexion") == 0)
+			{
+				endwin();
+				printf("\nDeconnexion réussie\n\n");
+				exit(-1);
+			}
+			else
+			{
+				write_serveur(sock, buffer); //envoi le message au serveur
+				
+				//ecrit le message dans la conversation en rajouter "vous" devant
+				concatener(buffer, "Vous");
+				ecritDansConv(buffer, conversation, ligne, fenHaut, fenBas);
+        	}
         }
     }
 
@@ -90,7 +99,7 @@ void initInterface(WINDOW *fenHaut, WINDOW *fenBas){
     box(fenHaut, ACS_VLINE, ACS_HLINE);
     box(fenBas, ACS_VLINE, ACS_HLINE);
     mvwprintw(fenHaut,1,1,"Messages : ");
-    mvwprintw(fenBas, 1, 1, "Votre message : ");
+    mvwprintw(fenBas, 1, 1, "Message : ");
 }
 
 int connect_socket(char *adresse, int port){
@@ -154,6 +163,15 @@ void read_serveur(int sock, char *buffer, char **conversation, int *ligne, WINDO
 	}
 	else
 	{
+		//verifie le message et met "..." a la fin si le message est trop lonng
+		if(strlen(buffer) > COLS - 2 )
+		{
+			buffer[COLS - 5] = '.';
+			buffer[COLS - 4] = '.';
+			buffer[COLS - 3] = '.';
+			buffer[COLS - 2] = '\0';
+		}
+
 		//ecrit le message dans la conversation
 		buffer[taille_recue] = '\0';
 		ecritDansConv(buffer, conversation, ligne, fenHaut, fenBas);
@@ -206,8 +224,6 @@ char *demandePseudo(){
 void ecritDansConv(char *buffer, char **conversation, int *ligne, WINDOW *fenHaut, WINDOW *fenBas){
 	int i, j;
 
-	//****todo: faire si message trop long
-
 	//on ecrit le nouveau message dans le chat
     if(*ligne < LINES - 6)
     {
@@ -235,15 +251,11 @@ void ecritDansConv(char *buffer, char **conversation, int *ligne, WINDOW *fenHau
     	mvwprintw(fenHaut, 2 + LINES - 7, 1,conversation[LINES - 7]);
     }
 
-    //supprimer le message "message trop long" si jamais il y etait avant
-    box(fenBas, ACS_VLINE, ACS_HLINE);
 	//supprimer le message qui a ete mis
-    for (i = 0; i < strlen(buffer); i++)
-    	buffer[i] = ' ';
+    wclrtoeol(fenBas);
+	box(fenBas, ACS_VLINE, ACS_HLINE);//refait le cadre de du bas
 
-	mvwprintw(fenBas, 1, 1, "Votre message : %s", buffer);
-	move(LINES - 2, 17);
-
+	//raffraichit
     wrefresh(fenHaut);
     wrefresh(fenBas);
 }
