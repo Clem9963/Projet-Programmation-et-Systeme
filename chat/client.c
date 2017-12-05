@@ -30,10 +30,16 @@ int main(int argc, char *argv[]){
 	char *ipAdresse = demandeIP();
 	char **conversation;
 	fd_set readfds;	
+	WINDOW *fenHaut, *fenBas;
 	
+	sock = connect_socket(ipAdresse, PORT);	//connexion au serveur
+	write_serveur(sock, pseudo); //envoi le pseudo au serveur
+	
+	//libere la memoire du pseudo et adresse ip car plus besoin
+	free(pseudo);
+	free(ipAdresse);
 
 	//Initialisation de l'interface graphique
-	WINDOW *fenHaut, *fenBas;
 	initscr();
 	fenHaut = subwin(stdscr, LINES - 3, COLS, 0, 0);
     fenBas = subwin(stdscr, 3, COLS, LINES - 3, 0);
@@ -41,13 +47,6 @@ int main(int argc, char *argv[]){
 
     //creation de la conversation
     conversation = initConv();
-
-	sock = connect_socket(ipAdresse, PORT);	//connexion au serveur
-	write_serveur(sock, pseudo); //envoi le pseudo au serveur
-	
-	//libere la memoire du pseudo et adresse ip car plus besoin
-	free(pseudo);
-	free(ipAdresse);
 
 	//boucle du chat
 	while(1)
@@ -59,6 +58,7 @@ int main(int argc, char *argv[]){
 
 		if(select(sock + 1, &readfds, NULL, NULL, NULL) == -1)
 		{
+			endwin();
 			perror("select()");
 			exit(-1);
 		}
@@ -182,6 +182,7 @@ void read_serveur(int sock, char *buffer, char **conversation, int *ligne, WINDO
 void write_serveur(int sock, char *buffer){
 	if(send(sock, buffer, strlen(buffer), 0) == -1)
 	{
+		endwin();
 		perror("send()");
 		exit(-1);
 	}
