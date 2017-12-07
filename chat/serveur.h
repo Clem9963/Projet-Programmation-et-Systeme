@@ -17,5 +17,6 @@ void ecouteConnexion(int csock, char *buffer, int indice, char **listePseudo);
 void envoiMessage(int csock, char *buffer);
 void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, char **listePseudo);
 void deconnexionClient(int * listeSock, int indice, int *nbClients, char **listePseudo);
+void envoiMessageTous(int *listeSock, char *buffer, int *nbClients);
 void envoiMessageAutresClients(int *listeSock, int indice, char *buffer, int *nbClients);
 void concatener(char *buffer, char *pseudo);

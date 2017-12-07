@@ -232,7 +232,10 @@ void ecritDansConv(char *buffer, char **conversation, int *ligne, WINDOW *fenHau
 
 	//supprimer le message qui a ete mis
     wclrtoeol(fenBas);
-	box(fenBas, ACS_VLINE, ACS_HLINE);//refait le cadre de du bas
+
+    //redessine les cadres
+    box(fenHaut, ACS_VLINE, ACS_HLINE);
+    box(fenBas, ACS_VLINE, ACS_HLINE);
 
 	//raffraichit
     wrefresh(fenHaut);

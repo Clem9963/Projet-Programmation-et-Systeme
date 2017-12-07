@@ -1,33 +1,31 @@
 #include "serveur.h"
 
 int main(){
-	
-	int sockServeur = socket(AF_INET, SOCK_STREAM, 0); /* créé un socket TCP */
-	char buffer[TAILLE_BUF];
-	fd_set readfds;
-	socklen_t taille;
-	struct sockaddr_in csin; 
-	
+	int i;
 	int nul = 0;
 	int *nbClients = &nul;
-
-	int i;
+	int sockServeur = socket(AF_INET, SOCK_STREAM, 0); /* créé un socket TCP */
 	int *listeSock = malloc(sizeof(int) * NB_CLIENT_MAX);
 
 	char **listePseudo = malloc(sizeof(char *) * NB_CLIENT_MAX);	
     for (i = 0; i < NB_CLIENT_MAX; i++)
         listePseudo[i] = malloc(sizeof(char)* 16);
-	
+
+	char buffer[TAILLE_BUF];
+	struct sockaddr_in csin; 
+	fd_set readfds;
+	socklen_t taille = sizeof( struct sockaddr_in );
+
 	//demarrage du serveur
 	ouvertureServeur(sockServeur);
-	
-	taille = sizeof( struct sockaddr_in );
 	
 	//boucle d'ecoute
 	while(1)
 	{
 		FD_ZERO(&readfds);
 		FD_SET(sockServeur, &readfds);
+		FD_SET(STDIN_FILENO, &readfds);
+
 		for(i = 0; i < *nbClients;i++)
 			FD_SET(listeSock[i], &readfds);	
 		
@@ -50,6 +48,14 @@ int main(){
 			envoiMessageAutresClients(listeSock, *nbClients, buffer, nbClients);
 		
 			(*nbClients)++;
+		}
+		//ecoute de l'entrée standart
+		else if(FD_ISSET(STDIN_FILENO, &readfds))
+		{
+			//recupere le message et l'envoi message a tout le monde
+			fgets(buffer, TAILLE_BUF,  stdin);
+			concatener(buffer, "Serveur");
+			envoiMessageTous(listeSock, buffer, nbClients);
 		}
 		//ecoute les sockets clients
 		else
@@ -120,6 +126,12 @@ void envoiMessage(int csock, char *buffer){
 		perror("send()");
 		exit(-1);
 	}
+}
+
+void envoiMessageTous(int *listeSock, char *buffer, int *nbClients){
+	int i;
+	for (i = 0; i < *nbClients; i++)
+		envoiMessage(listeSock[i], buffer); 
 }
 
 void envoiMessageAutresClients(int *listeSock, int indice, char *buffer, int *nbClients){
