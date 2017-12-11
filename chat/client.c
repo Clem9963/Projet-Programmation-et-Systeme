@@ -2,8 +2,8 @@
 
 int main(int argc, char *argv[]){
 	char buffer[TAILLE_BUF];
-	int sock, lig = 0;
-	int *ligne = &lig;
+	int sock;
+	int ligne = 0;
 	char * pseudo = demandePseudo();
 	char *ipAdresse = demandeIP();
 	char **conversation;
@@ -43,7 +43,7 @@ int main(int argc, char *argv[]){
 
 		if(FD_ISSET(sock, &readfds))
 		{
-			read_serveur(sock, buffer, conversation, ligne, fenHaut, fenBas);
+			read_serveur(sock, buffer, conversation, &ligne, fenHaut, fenBas);
 		}
 		else if(FD_ISSET(STDIN_FILENO, &readfds))
 		{
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]){
 				
 				//ecrit le message dans la conversation en rajouter "vous" devant
 				concatener(buffer, "Vous");
-				ecritDansConv(buffer, conversation, ligne, fenHaut, fenBas);
+				ecritDansConv(buffer, conversation, &ligne, fenHaut, fenBas);
         	}
         }
     }

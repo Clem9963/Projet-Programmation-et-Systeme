@@ -2,8 +2,7 @@
 
 int main(){
 	int i;
-	int nul = 0;
-	int *nbClients = &nul;
+	int nbClients = 0;
 	int sockServeur = socket(AF_INET, SOCK_STREAM, 0); /* créé un socket TCP */
 	int *listeSock = malloc(sizeof(int) * NB_CLIENT_MAX);
 
@@ -26,10 +25,10 @@ int main(){
 		FD_SET(sockServeur, &readfds);
 		FD_SET(STDIN_FILENO, &readfds);
 
-		for(i = 0; i < *nbClients;i++)
+		for(i = 0; i < nbClients;i++)
 			FD_SET(listeSock[i], &readfds);	
 		
-		if(select(sockServeur + (*nbClients) + 1, &readfds, NULL, NULL, NULL) == -1)
+		if(select(sockServeur +nbClients + 1, &readfds, NULL, NULL, NULL) == -1)
 		{
 			perror("select()");
 			exit(-1);
@@ -38,16 +37,16 @@ int main(){
 		//ecoute une connexion de client
 		if(FD_ISSET(sockServeur, &readfds))
 		{
-			listeSock[*nbClients] = accept(sockServeur, (struct sockaddr *)&csin, &taille);
-			ecouteConnexion(listeSock[*nbClients], buffer, *nbClients, listePseudo);
+			listeSock[nbClients] = accept(sockServeur, (struct sockaddr *)&csin, &taille);
+			ecouteConnexion(listeSock[nbClients], buffer, nbClients, listePseudo);
 			
 			//message de connexion pour les autres clients
-			sprintf(buffer, "%s est connecté", listePseudo[*nbClients]);
+			sprintf(buffer, "%s est connecté", listePseudo[nbClients]);
 
 			//envoi un message aux autres pour dire la connexion d'un client
-			envoiMessageAutresClients(listeSock, *nbClients, buffer, nbClients);
+			envoiMessageAutresClients(listeSock, nbClients, buffer, &nbClients);
 		
-			(*nbClients)++;
+			nbClients++;
 		}
 		//ecoute de l'entrée standart
 		else if(FD_ISSET(STDIN_FILENO, &readfds))
@@ -55,16 +54,16 @@ int main(){
 			//recupere le message et l'envoi message a tout le monde
 			fgets(buffer, TAILLE_BUF,  stdin);
 			concatener(buffer, "Serveur");
-			envoiMessageTous(listeSock, buffer, nbClients);
+			envoiMessageTous(listeSock, buffer, &nbClients);
 		}
 		//ecoute les sockets clients
 		else
 		{
-			for (i = 0; i < *nbClients; i++)
+			for (i = 0; i < nbClients; i++)
 			{
 				if(FD_ISSET(listeSock[i], &readfds))
 				{
-					ecouteMessage(listeSock, i, buffer, nbClients, listePseudo);
+					ecouteMessage(listeSock, i, buffer, &nbClients, listePseudo);
 				}
 			}
 		}
