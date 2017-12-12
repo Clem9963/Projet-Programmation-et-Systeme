@@ -3,17 +3,17 @@
 int main(){
 	int i;
 	int nbClients = 0;
-	int sockServeur = socket(AF_INET, SOCK_STREAM, 0); /* créé un socket TCP */
+	int sockServeur = socket(AF_INET, SOCK_STREAM, 0); //Création d'un socket TCP
 	int *listeSock = malloc(sizeof(int) * NB_CLIENT_MAX);
 
 	char **listePseudo = malloc(sizeof(char *) * NB_CLIENT_MAX);	
     for (i = 0; i < NB_CLIENT_MAX; i++)
-        listePseudo[i] = malloc(sizeof(char)* 16);
+        listePseudo[i] = malloc(sizeof(char) * 16);
 
 	char buffer[TAILLE_BUF];
 	struct sockaddr_in csin; 
 	fd_set readfds;
-	socklen_t taille = sizeof( struct sockaddr_in );
+	socklen_t taille = sizeof(struct sockaddr_in);
 
 	//demarrage du serveur
 	ouvertureServeur(sockServeur);
@@ -25,10 +25,10 @@ int main(){
 		FD_SET(sockServeur, &readfds);
 		FD_SET(STDIN_FILENO, &readfds);
 
-		for(i = 0; i < nbClients;i++)
+		for(i = 0; i < nbClients; i++)
 			FD_SET(listeSock[i], &readfds);	
 		
-		if(select(sockServeur +nbClients + 1, &readfds, NULL, NULL, NULL) == -1)
+		if(select(sockServeur + nbClients + 1, &readfds, NULL, NULL, NULL) == -1)
 		{
 			perror("select()");
 			exit(-1);
@@ -52,7 +52,7 @@ int main(){
 		else if(FD_ISSET(STDIN_FILENO, &readfds))
 		{
 			//recupere le message et l'envoi message a tout le monde
-			fgets(buffer, TAILLE_BUF,  stdin);
+			fgets(buffer, TAILLE_BUF, stdin);
 			concatener(buffer, "Serveur");
 			envoiMessageTous(listeSock, buffer, &nbClients);
 		}
@@ -69,6 +69,11 @@ int main(){
 		}
 	}
 	
+	//liberation de la memoire
+	free(listeSock);
+	for (i = 0; i < NB_CLIENT_MAX; i++)
+		free(listePseudo[i]);
+	free(listePseudo);
 	close(sockServeur);
 
 	return 0;
@@ -77,16 +82,18 @@ int main(){
 
 void ouvertureServeur(int sock){
 	struct sockaddr_in sin;
-	sin.sin_addr.s_addr = htonl(INADDR_ANY); /* on accepte toute adresse */
+	sin.sin_addr.s_addr = htonl(INADDR_ANY);
 	sin.sin_port = htons(PORT);
 	sin.sin_family = AF_INET;
-	if(bind (sock, (struct sockaddr*) &sin, sizeof(sin)) == -1) /* on lie le socket à sin */
+
+	if(bind (sock, (struct sockaddr*) &sin, sizeof(sin)) == -1)
 	{
 		perror("bind()");
 		exit(-1);
 	}
 	
-	if(listen(sock, NB_CLIENT_MAX) == -1) /* notre socket est prêt à écouter une connection */
+	//ecoute les connexions
+	if(listen(sock, NB_CLIENT_MAX) == -1) 
 	{
 		perror("listen");
 		exit(-1);
@@ -96,7 +103,7 @@ void ouvertureServeur(int sock){
 
 void ecouteConnexion(int csock, char *buffer, int indice, char **listePseudo){
 	ssize_t taille_recue;
-	char *bienvenue = malloc(sizeof(char) * (strlen(buffer) + 10)); 
+	char *bienvenue = malloc(sizeof(char) * (strlen(buffer) + 10)); //+10 car faut rajouter le "Bienvenue "
 
 	taille_recue = recv(csock, buffer, TAILLE_BUF, 0);
 	
@@ -109,7 +116,7 @@ void ecouteConnexion(int csock, char *buffer, int indice, char **listePseudo){
 	else
 	{
 		buffer[taille_recue] = '\0';
-		printf("%s est connecté\n",buffer);
+		printf("%s est connecté\n", buffer);
 		sprintf(bienvenue, "Bienvenue %s", buffer);
 		envoiMessage(csock, bienvenue);//message de bienvenue
 		free(bienvenue);
@@ -153,12 +160,12 @@ void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, cha
 		perror("recv()");
 		exit(-1);
 	}
-	//pour gerer la deconnexion directe du client
+	//pour gerer la deconnexion du client
 	else if(taille_recue == 0)
 	{
 		sprintf(buffer, "%s s'est déconnecté", listePseudo[indice]);
 		envoiMessageAutresClients(listeSock, indice, buffer, nbClients);
-		printf("%s\n",buffer);
+		printf("%s\n", buffer);
 		deconnexionClient(listeSock, indice, nbClients, listePseudo);
 	}
 
@@ -171,7 +178,7 @@ void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, cha
 	}
 }
 
-void deconnexionClient(int * listeSock, int indice, int *nbClients, char **listePseudo){
+void deconnexionClient(int *listeSock, int indice, int *nbClients, char **listePseudo){
 	int i, j;
 
 	if(close(listeSock[indice]) == -1)// ferme le socket
@@ -187,7 +194,7 @@ void deconnexionClient(int * listeSock, int indice, int *nbClients, char **liste
 	{
 		if(listeSock[i] == 0)
 		{
-			for (j=i+1;j<*nbClients;j++)
+			for (j = i + 1; j < *nbClients; j++)
 			{
 				if(listeSock[j] != 0)
 				{

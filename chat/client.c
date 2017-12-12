@@ -1,10 +1,12 @@
 #include "client.h"
 
 int main(int argc, char *argv[]){
+
+	//initialisation des variables
 	char buffer[TAILLE_BUF];
 	int sock;
 	int ligne = 0;
-	char * pseudo = demandePseudo();
+	char *pseudo = demandePseudo();
 	char *ipAdresse = demandeIP();
 	char **conversation;
 	fd_set readfds;	
@@ -55,6 +57,7 @@ int main(int argc, char *argv[]){
 			{
 				endwin();
 				printf("\nDeconnexion réussie\n\n");
+				libereMemoire(sock, conversation);
 				exit(-1);
 			}
 			else
@@ -68,39 +71,40 @@ int main(int argc, char *argv[]){
         }
     }
 
-	close(sock);
-
+    //liberation de la memoire
+    libereMemoire(sock, conversation);
 	return 0;
 }
 
 void initInterface(WINDOW *fenHaut, WINDOW *fenBas){
     box(fenHaut, ACS_VLINE, ACS_HLINE);
     box(fenBas, ACS_VLINE, ACS_HLINE);
-    mvwprintw(fenHaut,1,1,"Messages : ");
+    mvwprintw(fenHaut, 1, 1,"Messages : ");
     mvwprintw(fenBas, 1, 1, "Message : ");
 }
 
 int connect_socket(char *adresse, int port){
-	int sock = socket(AF_INET, SOCK_STREAM, 0); //créé un socket TCP
+	int sock = socket(AF_INET, SOCK_STREAM, 0); //création d'un socket
 
-	if( sock == -1)
+	if(sock == -1)
 	{
 		perror("socket()");
 		exit(-1);
 	}
 
-	struct hostent* hostinfo = gethostbyname(adresse); // infos du serveur
+	struct hostent* hostinfo = gethostbyname(adresse); // information du serveur
 	if(hostinfo == NULL)
 	{
 		perror("gethostbyname()");
 		exit(-1);
 	}
 	
-	struct sockaddr_in sin; //structure qui possède toutes les infos pour le socket
-	sin.sin_addr = *(struct in_addr*) hostinfo->h_addr; // on spécifie l'addresse
-	sin.sin_port = htons(port); //le port 
-	sin.sin_family = AF_INET; //et le protocole (AF_INET pour IP)
+	struct sockaddr_in sin; //structure qui contient les infos pour le socket
+	sin.sin_addr = *(struct in_addr*) hostinfo->h_addr; //pour spécifier l'adresse
+	sin.sin_port = htons(port); //pour le port 
+	sin.sin_family = AF_INET; //pour le potocole
 	
+	//connexion au serveur
 	if(connect(sock, (struct sockaddr*) &sin, sizeof(struct sockaddr)) == -1)
 	{
 		perror("connect()");
@@ -116,7 +120,7 @@ char **initConv(){
 	char **conv = malloc(sizeof(char *) * (LINES - 6));
 
     for (i = 0; i < LINES - 6; i++)
-        conv[i] = malloc(sizeof(char)* TAILLE_BUF);
+        conv[i] = malloc(sizeof(char) * TAILLE_BUF);
 
     return conv;
 }
@@ -137,6 +141,8 @@ void read_serveur(int sock, char *buffer, char **conversation, int *ligne, WINDO
 	{
 		endwin();
 		printf("\nla connexion au serveur a été interrompue\n\n");
+		//liberation de la memoire
+		libereMemoire(sock, conversation);
 		exit(-1);
 	}
 	else
@@ -168,14 +174,14 @@ void write_serveur(int sock, char *buffer){
 
 //demande uen adresse ip
 char *demandeIP(){
-	char *adresseIP = malloc(sizeof(char) * 16);
+	char *adresseIP = malloc(sizeof(char) * 15);
 
 	printf("\nAdresse IP du serveur : ");
-    scanf("%s",adresseIP);
+    scanf("%s", adresseIP);
     
     if(strlen(adresseIP) > 15 || strlen(adresseIP) < 7)
     {
-        fprintf( stderr, "Mauvaise adresse IP...\n" );
+        fprintf(stderr, "Mauvaise adresse IP...\n");
 		exit(-1);
     }
 
@@ -184,16 +190,16 @@ char *demandeIP(){
 
 //demande un pseudo
 char *demandePseudo(){
-	char *pseudo = malloc(sizeof(char) * 16);
+	char *pseudo = malloc(sizeof(char) * TAILLE_PSEUDO);
 
 	printf("\nVotre pseudo : ");
-    scanf("%s",pseudo);
+    scanf("%s", pseudo);
 
-    while(strlen(pseudo) > 15)
+    while(strlen(pseudo) > TAILLE_PSEUDO)
     {
     	printf("\nVotre pseudo est trop long (au max 15 caracteres)");
     	printf("\nVotre pseudo : ");
-    	scanf("%s",pseudo);
+    	scanf("%s", pseudo);
     }
 
     return pseudo;
@@ -207,7 +213,7 @@ void ecritDansConv(char *buffer, char **conversation, int *ligne, WINDOW *fenHau
     if(*ligne < LINES - 6)
     {
         strcpy(conversation[*ligne], buffer);
-    	mvwprintw(fenHaut,*ligne + 2, 1,conversation[*ligne]);
+    	mvwprintw(fenHaut, *ligne + 2, 1, conversation[*ligne]);
     	(*ligne)++;
     }
     //sinon on scroll de un vers le bas
@@ -216,28 +222,29 @@ void ecritDansConv(char *buffer, char **conversation, int *ligne, WINDOW *fenHau
     	//effacer l'affichage de la conversation
     	for(i = 0; i < LINES - 6; i++)
     		for(j = 0; j < strlen(conversation[i]); j++)
-    			mvwprintw(fenHaut, 2+i , 1+j," ");
+    			mvwprintw(fenHaut, 2 + i , 1 + j, " ");
 
     	//decalage vers le haut
     	for(i = 0; i < LINES - 7; i++)
     	{
-    		strcpy(conversation[i], conversation[i+1]);
-    		mvwprintw(fenHaut, 2+i , 1,conversation[i]);
+    		strcpy(conversation[i], conversation[i + 1]);
+    		mvwprintw(fenHaut, 2 + i , 1,conversation[i]);
 		}
 
 		//ecriture du nouveau message en bas
     	strcpy(conversation[LINES - 7], buffer);
-    	mvwprintw(fenHaut, 2 + LINES - 7, 1,conversation[LINES - 7]);
+    	mvwprintw(fenHaut, 2 + LINES - 7, 1, conversation[LINES - 7]);
     }
+	
+	//raffraichit les fenetres
+	rafraichit(fenHaut, fenBas);
 
-	//supprimer le message qui a ete mis
-    wclrtoeol(fenBas);
+}
 
-    //redessine les cadres
-    box(fenHaut, ACS_VLINE, ACS_HLINE);
+void rafraichit(WINDOW *fenHaut, WINDOW *fenBas){
+	wclrtoeol(fenBas);
     box(fenBas, ACS_VLINE, ACS_HLINE);
-
-	//raffraichit
+    box(fenHaut, ACS_VLINE, ACS_HLINE);
     wrefresh(fenHaut);
     wrefresh(fenBas);
 }
@@ -248,4 +255,14 @@ void concatener(char *buffer, char *pseudo){
 	sprintf(temp, "%s : %s", pseudo, buffer);
 	strcpy(buffer, temp);
 	free(temp);
+}
+
+void libereMemoire(int sock, char **conversation){
+	int i;
+
+    //liberation de la memoire
+    for (i = 0; i < LINES - 6; i++)
+    	free(conversation[i]);
+   	free(conversation);
+	close(sock);
 }

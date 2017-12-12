@@ -9,7 +9,7 @@
 #include <ncurses.h>
 
 #define TAILLE_BUF 1000
-#define TAILLE_PSEUDO 16
+#define TAILLE_PSEUDO 15
 #define PORT 54888
 
 char *demandeIP();
@@ -21,3 +21,5 @@ void ecritDansConv(char *buffer, char **conversation, int *ligne, WINDOW *fenHau
 char **initConv();
 void concatener(char *buffer, char *pseudo);
 void initInterface(WINDOW *fenHaut, WINDOW *fenBas);
+void libereMemoire(int sock, char **conversation);
+void rafraichit(WINDOW *fenHaut, WINDOW *fenBas);
