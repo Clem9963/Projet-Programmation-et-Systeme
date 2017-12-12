@@ -8,7 +8,6 @@ int main(int argc, char *argv[]){
 	int ligne = 0;
 	char pseudo[TAILLE_PSEUDO];
 	char ipAdresse[15]; 
-	char **conversation;
 	fd_set readfds;	
 	WINDOW *fenHaut, *fenBas;
 	
@@ -25,8 +24,9 @@ int main(int argc, char *argv[]){
     fenBas = subwin(stdscr, 3, COLS, LINES - 3, 0);
 	initInterface(fenHaut, fenBas);
 
-    //creation de la conversation
-    conversation = initConv();
+    //creation de la conversation (je suis obligé de faire l'initialisation de la conversation à cet endroit 
+    //car il faut la faire après initscr())
+	char conversation[LINES - 6][TAILLE_BUF];
 
 	//boucle du chat
 	while(1)
@@ -40,6 +40,7 @@ int main(int argc, char *argv[]){
 		{
 			endwin();
 			perror("select()");
+			close(sock);
 			exit(-1);
 		}
 
@@ -57,7 +58,7 @@ int main(int argc, char *argv[]){
 			{
 				endwin();
 				printf("\nDeconnexion réussie\n\n");
-				libereMemoire(sock, conversation);
+				close(sock);
 				exit(-1);
 			}
 			else
@@ -71,8 +72,7 @@ int main(int argc, char *argv[]){
         }
     }
 
-    //liberation de la memoire
-    libereMemoire(sock, conversation);
+	close(sock);
 	return 0;
 }
 
@@ -114,18 +114,7 @@ int connect_socket(char *adresse, int port){
 	return sock;
 }
 
-//initialise la conversation
-char **initConv(){
-	int i;
-	char **conv = malloc(sizeof(char *) * (LINES - 6));
-
-    for (i = 0; i < LINES - 6; i++)
-        conv[i] = malloc(sizeof(char) * TAILLE_BUF);
-
-    return conv;
-}
-
-void read_serveur(int sock, char *buffer, char **conversation, int *ligne, WINDOW *fenHaut, WINDOW *fenBas){
+void read_serveur(int sock, char *buffer, char conversation[LINES - 6][TAILLE_BUF], int *ligne, WINDOW *fenHaut, WINDOW *fenBas){
 	int taille_recue;
 
 	taille_recue = recv(sock, buffer, TAILLE_BUF, 0);
@@ -134,6 +123,7 @@ void read_serveur(int sock, char *buffer, char **conversation, int *ligne, WINDO
 	{
 		endwin();
 		perror("recv()");
+		close(sock);
 		exit(-1);
 	}
 	//pour gerer la deconnexion du serveur
@@ -141,8 +131,7 @@ void read_serveur(int sock, char *buffer, char **conversation, int *ligne, WINDO
 	{
 		endwin();
 		printf("\nla connexion au serveur a été interrompue\n\n");
-		//liberation de la memoire
-		libereMemoire(sock, conversation);
+		close(sock);
 		exit(-1);
 	}
 	else
@@ -168,6 +157,7 @@ void write_serveur(int sock, char *buffer){
 	{
 		endwin();
 		perror("send()");
+		close(sock);
 		exit(-1);
 	}
 }
@@ -198,7 +188,7 @@ void demandePseudo(char *pseudo){
 }
 
 //ecrit un message dans la conversation
-void ecritDansConv(char *buffer, char **conversation, int *ligne, WINDOW *fenHaut, WINDOW *fenBas){
+void ecritDansConv(char *buffer, char conversation[LINES - 6][TAILLE_BUF], int *ligne, WINDOW *fenHaut, WINDOW *fenBas){
 	int i, j;
 
 	//on ecrit le nouveau message dans le chat
@@ -246,14 +236,4 @@ void concatener(char *buffer, char *pseudo){
 	char temp[TAILLE_BUF + TAILLE_PSEUDO];
 	sprintf(temp, "%s : %s", pseudo, buffer);
 	strcpy(buffer, temp);
-}
-
-void libereMemoire(int sock, char **conversation){
-	int i;
-
-    //liberation de la memoire
-    for (i = 0; i < LINES - 6; i++)
-    	free(conversation[i]);
-   	free(conversation);
-	close(sock);
 }

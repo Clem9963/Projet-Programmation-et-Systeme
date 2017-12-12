@@ -15,11 +15,9 @@
 void demandeIP(char *adresseIP);
 void demandePseudo(char *pseudo);
 int connect_socket(char *adresse, int port);
-void read_serveur(int sock, char *buffer, char **conversation, int *ligne, WINDOW *fenHaut, WINDOW *fenBas);
+void read_serveur(int sock, char *buffer, char conversation[LINES - 6][TAILLE_BUF], int *ligne, WINDOW *fenHaut, WINDOW *fenBas);
 void write_serveur(int sock, char *buffer);
-void ecritDansConv(char *buffer, char **conversation, int *ligne, WINDOW *fenHaut, WINDOW *fenBas);
-char **initConv();
+void ecritDansConv(char *buffer, char conversation[LINES - 6][TAILLE_BUF], int *ligne, WINDOW *fenHaut, WINDOW *fenBas);
 void concatener(char *buffer, char *pseudo);
 void initInterface(WINDOW *fenHaut, WINDOW *fenBas);
-void libereMemoire(int sock, char **conversation);
 void rafraichit(WINDOW *fenHaut, WINDOW *fenBas);
