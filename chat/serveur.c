@@ -4,12 +4,8 @@ int main(){
 	int i;
 	int nbClients = 0;
 	int sockServeur = socket(AF_INET, SOCK_STREAM, 0); //Création d'un socket TCP
-	int *listeSock = malloc(sizeof(int) * NB_CLIENT_MAX);
-
-	char **listePseudo = malloc(sizeof(char *) * NB_CLIENT_MAX);	
-    for (i = 0; i < NB_CLIENT_MAX; i++)
-        listePseudo[i] = malloc(sizeof(char) * 16);
-
+	int listeSock[NB_CLIENT_MAX];
+	char listePseudo[NB_CLIENT_MAX][TAILLE_PSEUDO];	
 	char buffer[TAILLE_BUF];
 	struct sockaddr_in csin; 
 	fd_set readfds;
@@ -31,6 +27,7 @@ int main(){
 		if(select(sockServeur + nbClients + 1, &readfds, NULL, NULL, NULL) == -1)
 		{
 			perror("select()");
+			close(sockServeur);
 			exit(-1);
 		}
 		
@@ -69,11 +66,6 @@ int main(){
 		}
 	}
 	
-	//liberation de la memoire
-	free(listeSock);
-	for (i = 0; i < NB_CLIENT_MAX; i++)
-		free(listePseudo[i]);
-	free(listePseudo);
 	close(sockServeur);
 
 	return 0;
@@ -101,9 +93,9 @@ void ouvertureServeur(int sock){
 	printf("Le serveur est opérationnel\n");
 }
 
-void ecouteConnexion(int csock, char *buffer, int indice, char **listePseudo){
+void ecouteConnexion(int csock, char *buffer, int indice, char listePseudo[NB_CLIENT_MAX][TAILLE_PSEUDO]){
 	ssize_t taille_recue;
-	char *bienvenue = malloc(sizeof(char) * (strlen(buffer) + 10)); //+10 car faut rajouter le "Bienvenue "
+	char bienvenue[strlen(buffer) + 10]; //+10 car faut rajouter le "Bienvenue "
 
 	taille_recue = recv(csock, buffer, TAILLE_BUF, 0);
 	
@@ -119,7 +111,6 @@ void ecouteConnexion(int csock, char *buffer, int indice, char **listePseudo){
 		printf("%s est connecté\n", buffer);
 		sprintf(bienvenue, "Bienvenue %s", buffer);
 		envoiMessage(csock, bienvenue);//message de bienvenue
-		free(bienvenue);
 
 		//isncrire dans la liste des pseudos
 		strcpy(listePseudo[indice], buffer);
@@ -149,7 +140,7 @@ void envoiMessageAutresClients(int *listeSock, int indice, char *buffer, int *nb
 	}
 }
 
-void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, char **listePseudo){
+void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, char listePseudo[NB_CLIENT_MAX][TAILLE_PSEUDO]){
 	ssize_t taille_recue;
 	int i;
 
@@ -178,7 +169,7 @@ void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, cha
 	}
 }
 
-void deconnexionClient(int *listeSock, int indice, int *nbClients, char **listePseudo){
+void deconnexionClient(int *listeSock, int indice, int *nbClients, char listePseudo[NB_CLIENT_MAX][TAILLE_PSEUDO]){
 	int i, j;
 
 	if(close(listeSock[indice]) == -1)// ferme le socket
@@ -212,8 +203,7 @@ void deconnexionClient(int *listeSock, int indice, int *nbClients, char **listeP
 }
 
 void concatener(char *buffer, char *pseudo){
-	char *temp = malloc(sizeof(char) * (TAILLE_BUF + TAILLE_PSEUDO));
+	char temp[TAILLE_BUF + TAILLE_PSEUDO];
 	sprintf(temp, "%s : %s", pseudo, buffer);
 	strcpy(buffer, temp);
-	free(temp);
 }

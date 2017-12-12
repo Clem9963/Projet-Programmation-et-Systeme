@@ -6,18 +6,18 @@ int main(int argc, char *argv[]){
 	char buffer[TAILLE_BUF];
 	int sock;
 	int ligne = 0;
-	char *pseudo = demandePseudo();
-	char *ipAdresse = demandeIP();
+	char pseudo[TAILLE_PSEUDO];
+	char ipAdresse[15]; 
 	char **conversation;
 	fd_set readfds;	
 	WINDOW *fenHaut, *fenBas;
 	
+	//récuperation du pseudo et de l'adresse ip
+	demandePseudo(pseudo);
+	demandeIP(ipAdresse);
+
 	sock = connect_socket(ipAdresse, PORT);	//connexion au serveur
 	write_serveur(sock, pseudo); //envoi le pseudo au serveur
-	
-	//libere la memoire du pseudo et adresse ip car plus besoin
-	free(pseudo);
-	free(ipAdresse);
 
 	//Initialisation de l'interface graphique
 	initscr();
@@ -173,9 +173,7 @@ void write_serveur(int sock, char *buffer){
 }
 
 //demande uen adresse ip
-char *demandeIP(){
-	char *adresseIP = malloc(sizeof(char) * 15);
-
+void demandeIP(char *adresseIP){
 	printf("\nAdresse IP du serveur : ");
     scanf("%s", adresseIP);
     
@@ -184,14 +182,10 @@ char *demandeIP(){
         fprintf(stderr, "Mauvaise adresse IP...\n");
 		exit(-1);
     }
-
-    return adresseIP;
 }
 
 //demande un pseudo
-char *demandePseudo(){
-	char *pseudo = malloc(sizeof(char) * TAILLE_PSEUDO);
-
+void demandePseudo(char *pseudo){
 	printf("\nVotre pseudo : ");
     scanf("%s", pseudo);
 
@@ -201,8 +195,6 @@ char *demandePseudo(){
     	printf("\nVotre pseudo : ");
     	scanf("%s", pseudo);
     }
-
-    return pseudo;
 }
 
 //ecrit un message dans la conversation
@@ -251,10 +243,9 @@ void rafraichit(WINDOW *fenHaut, WINDOW *fenBas){
 
 //concatene le pseudo dans le buffer pour faire "pseudo : message" (+ propre)
 void concatener(char *buffer, char *pseudo){
-	char *temp = malloc(sizeof(char) * (TAILLE_BUF + TAILLE_PSEUDO));
+	char temp[TAILLE_BUF + TAILLE_PSEUDO];
 	sprintf(temp, "%s : %s", pseudo, buffer);
 	strcpy(buffer, temp);
-	free(temp);
 }
 
 void libereMemoire(int sock, char **conversation){

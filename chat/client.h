@@ -12,8 +12,8 @@
 #define TAILLE_PSEUDO 15
 #define PORT 54888
 
-char *demandeIP();
-char *demandePseudo();
+void demandeIP(char *adresseIP);
+void demandePseudo(char *pseudo);
 int connect_socket(char *adresse, int port);
 void read_serveur(int sock, char *buffer, char **conversation, int *ligne, WINDOW *fenHaut, WINDOW *fenBas);
 void write_serveur(int sock, char *buffer);

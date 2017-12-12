@@ -13,10 +13,10 @@
 #define TAILLE_PSEUDO 16
 
 void ouvertureServeur(int sock);
-void ecouteConnexion(int csock, char *buffer, int indice, char **listePseudo);
+void ecouteConnexion(int csock, char *buffer, int indice, char listePseudo[NB_CLIENT_MAX][TAILLE_PSEUDO]);
 void envoiMessage(int csock, char *buffer);
-void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, char **listePseudo);
-void deconnexionClient(int *listeSock, int indice, int *nbClients, char **listePseudo);
+void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, char listePseudo[NB_CLIENT_MAX][TAILLE_PSEUDO]);
+void deconnexionClient(int *listeSock, int indice, int *nbClients, char listePseudo[NB_CLIENT_MAX][TAILLE_PSEUDO]);
 void envoiMessageTous(int *listeSock, char *buffer, int *nbClients);
 void envoiMessageAutresClients(int *listeSock, int indice, char *buffer, int *nbClients);
 void concatener(char *buffer, char *pseudo);
