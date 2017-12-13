@@ -13,21 +13,35 @@ ifeq ($(LIB),static)
 endif
 
 # Règles
-all : Object_files/main.o Object_files/fonctions.o
-	$(COMPILER) $(LFLAGS) $(CFLAGS) Object_files/main.o Object_files/fonctions.o -o executable.bin
+all : server client
+
+server : Object_files/server.o Object_files/server_functions.o
+	$(COMPILER) $(LFLAGS) $(CFLAGS) Object_files/server.o Object_files/server_functions.o -o server.bin
 	@echo
 	@echo Exécutable généré via $(COMPILER) en mode $(BUILD) $(LIB)
 
-Object_files/main.o : main.c
-	$(COMPILER) $(LFLAGS) $(CFLAGS) -I Headers -c main.c -o Object_files/main.o
+client : Object_files/client.o Object_files/client_functions.o
+	$(COMPILER) $(LFLAGS) $(CFLAGS) Object_files/client.o Object_files/client_functions.o -o client.bin
+	@echo
+	@echo Exécutable généré via $(COMPILER) en mode $(BUILD) $(LIB)
+
+
+Object_files/server.o : server.c
+	$(COMPILER) $(LFLAGS) $(CFLAGS) -I Headers -c server.c -o Object_files/server.o
+
+Object_files/client.o : client.c
+	$(COMPILER) $(LFLAGS) $(CFLAGS) -I Headers -c client.c -o Object_files/client.o
  
-Object_files/fonctions.o : Sources/fonctions.c
-	$(COMPILER) $(LFLAGS) $(CFLAGS) -I Headers -c Sources/fonctions.c -o Object_files/fonctions.o
+Object_files/server_functions.o : Sources/server_functions.c
+	$(COMPILER) $(LFLAGS) $(CFLAGS) -I Headers -c Sources/server_functions.c -o Object_files/server_functions.o
+
+Object_files/client_functions.o : Sources/client_functions.c
+	$(COMPILER) $(LFLAGS) $(CFLAGS) -I Headers -c Sources/client_functions.c -o Object_files/client_functions.o
 
 # Suppression des fichiers objets
 
 clean:
-	rm -rf *.o
+	rm -rf Object_files/*.o
 
 # Suppression de tous les fichiers, sauf les sources, en vue d'une reconstruction complète
 
