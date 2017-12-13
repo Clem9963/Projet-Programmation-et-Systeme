@@ -1,6 +1,8 @@
 #include "serveur.h"
 
 int main(){
+
+	//initialisation des variables
 	int i;
 	int nbClients = 0;
 	int sockServeur = socket(AF_INET, SOCK_STREAM, 0); //Création d'un socket TCP
@@ -17,8 +19,10 @@ int main(){
 	//boucle d'ecoute
 	while(1)
 	{
-		FD_ZERO(&readfds);
-		FD_SET(sockServeur, &readfds);
+		FD_ZERO(&readfds); //met à 0 le readfds
+
+		//remplit le readfds
+		FD_SET(sockServeur, &readfds); 
 		FD_SET(STDIN_FILENO, &readfds);
 
 		for(i = 0; i < nbClients; i++)
@@ -66,12 +70,13 @@ int main(){
 		}
 	}
 	
+	//ferme le socket
 	close(sockServeur);
 
 	return 0;
 }
 
-
+//lancement du serveur
 void ouvertureServeur(int sock){
 	struct sockaddr_in sin;
 	sin.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -93,12 +98,14 @@ void ouvertureServeur(int sock){
 	printf("Le serveur est opérationnel\n");
 }
 
+//ecoute la connexion d'un client
 void ecouteConnexion(int csock, char *buffer, int indice, char listePseudo[NB_CLIENT_MAX][TAILLE_PSEUDO]){
 	ssize_t taille_recue;
 	char bienvenue[strlen(buffer) + 10]; //+10 car faut rajouter le "Bienvenue "
 
-	taille_recue = recv(csock, buffer, TAILLE_BUF, 0);
+	taille_recue = recv(csock, buffer, TAILLE_BUF, 0); //recoit le pseudo
 	
+	//gère une erreur
 	if(taille_recue == -1)
 	{
 		close(csock);
@@ -144,8 +151,9 @@ void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, cha
 	ssize_t taille_recue;
 	int i;
 
-	taille_recue = recv(listeSock[indice], buffer, TAILLE_BUF, 0);
+	taille_recue = recv(listeSock[indice], buffer, TAILLE_BUF, 0); //recoi le message
 	
+	//gère une erreur
 	if(taille_recue == -1)
 	{
 		perror("recv()");
@@ -159,7 +167,7 @@ void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, cha
 		printf("%s\n", buffer);
 		deconnexionClient(listeSock, indice, nbClients, listePseudo);
 	}
-
+	//envoi le message aux autres clients si pas d'erreurs
 	else
 	{
 		buffer[taille_recue] = '\0';
@@ -169,6 +177,7 @@ void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, cha
 	}
 }
 
+//deconnexion d'un client
 void deconnexionClient(int *listeSock, int indice, int *nbClients, char listePseudo[NB_CLIENT_MAX][TAILLE_PSEUDO]){
 	int i, j;
 
@@ -202,6 +211,7 @@ void deconnexionClient(int *listeSock, int indice, int *nbClients, char listePse
 	(*nbClients)--;// diminue le nombre de clients
 }
 
+//concatenation du pseudo devant le message
 void concatener(char *buffer, char *pseudo){
 	char temp[TAILLE_BUF + TAILLE_PSEUDO];
 	sprintf(temp, "%s : %s", pseudo, buffer);

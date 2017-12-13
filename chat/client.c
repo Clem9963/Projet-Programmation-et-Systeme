@@ -32,8 +32,8 @@ int main(int argc, char *argv[]){
 	while(1)
 	{
 		move(LINES - 2, 11);//se positionn au bon endroit pour ecrire le message
-		FD_ZERO(&readfds);
-		FD_SET(STDIN_FILENO, &readfds);
+		FD_ZERO(&readfds); //met à 0 le readfds
+		FD_SET(STDIN_FILENO, &readfds); //remplit le readfds
 		FD_SET(sock, &readfds);
 
 		if(select(sock + 1, &readfds, NULL, NULL, NULL) == -1)
@@ -43,6 +43,7 @@ int main(int argc, char *argv[]){
 			exit(-1);
 		}
 
+		//ecoute si il y a une activité sur le socket ou l'entrée standard
 		if(FD_ISSET(sock, &readfds))
 		{
 			read_serveur(sock, buffer, conversation, &ligne, fenHaut, fenBas);
@@ -70,10 +71,12 @@ int main(int argc, char *argv[]){
         }
     }
 
-	close(sock);
+    //efface la memoire utilisée
+	effaceMemoire(sock, fenHaut, fenBas);
 	return 0;
 }
 
+//initialisation de l'interface
 void initInterface(WINDOW *fenHaut, WINDOW *fenBas){
     box(fenHaut, ACS_VLINE, ACS_HLINE);
     box(fenBas, ACS_VLINE, ACS_HLINE);
@@ -116,8 +119,9 @@ int connect_socket(char *adresse, int port){
 void read_serveur(int sock, char *buffer, char conversation[LINES - 6][TAILLE_BUF], int *ligne, WINDOW *fenHaut, WINDOW *fenBas){
 	int taille_recue;
 
-	taille_recue = recv(sock, buffer, TAILLE_BUF, 0);
+	taille_recue = recv(sock, buffer, TAILLE_BUF, 0); //reçoit le message
 
+	//gere si il y a une erreur
 	if(taille_recue == -1)
 	{
 		effaceMemoire(sock, fenHaut, fenBas);
@@ -220,9 +224,10 @@ void ecritDansConv(char *buffer, char conversation[LINES - 6][TAILLE_BUF], int *
 
 }
 
+//raffraichit l'interface
 void rafraichit(WINDOW *fenHaut, WINDOW *fenBas){
 	wclrtoeol(fenBas);
-    box(fenBas, ACS_VLINE, ACS_HLINE);
+    box(fenBas, ACS_VLINE, ACS_HLINE);//recrée les cadres
     box(fenHaut, ACS_VLINE, ACS_HLINE);
     wrefresh(fenHaut);
     wrefresh(fenBas);
@@ -235,6 +240,7 @@ void concatener(char *buffer, char *pseudo){
 	strcpy(buffer, temp);
 }
 
+//supprime les fenetres et l'interface et ferme le socket
 void effaceMemoire(int sock, WINDOW *fenHaut, WINDOW *fenBas){
 	delwin(fenHaut);
 	delwin(fenBas);
