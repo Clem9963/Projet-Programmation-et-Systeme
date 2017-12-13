@@ -38,9 +38,8 @@ int main(int argc, char *argv[]){
 
 		if(select(sock + 1, &readfds, NULL, NULL, NULL) == -1)
 		{
-			endwin();
+			effaceMemoire(sock, fenHaut, fenBas);
 			perror("select()");
-			close(sock);
 			exit(-1);
 		}
 
@@ -56,9 +55,8 @@ int main(int argc, char *argv[]){
 			//se déconnecte du chat si le message est deconnexion
 			if(strcmp(buffer, "deconnexion") == 0)
 			{
-				endwin();
+				effaceMemoire(sock, fenHaut, fenBas);
 				printf("\nDeconnexion réussie\n\n");
-				close(sock);
 				exit(-1);
 			}
 			else
@@ -96,6 +94,7 @@ int connect_socket(char *adresse, int port){
 	if(hostinfo == NULL)
 	{
 		perror("gethostbyname()");
+		close(sock);
 		exit(-1);
 	}
 	
@@ -121,17 +120,15 @@ void read_serveur(int sock, char *buffer, char conversation[LINES - 6][TAILLE_BU
 
 	if(taille_recue == -1)
 	{
-		endwin();
+		effaceMemoire(sock, fenHaut, fenBas);
 		perror("recv()");
-		close(sock);
 		exit(-1);
 	}
 	//pour gerer la deconnexion du serveur
 	else if(taille_recue == 0)
 	{
-		endwin();
+		effaceMemoire(sock, fenHaut, fenBas);
 		printf("\nla connexion au serveur a été interrompue\n\n");
-		close(sock);
 		exit(-1);
 	}
 	else
@@ -236,4 +233,11 @@ void concatener(char *buffer, char *pseudo){
 	char temp[TAILLE_BUF + TAILLE_PSEUDO];
 	sprintf(temp, "%s : %s", pseudo, buffer);
 	strcpy(buffer, temp);
+}
+
+void effaceMemoire(int sock, WINDOW *fenHaut, WINDOW *fenBas){
+	delwin(fenHaut);
+	delwin(fenBas);
+	endwin();
+	close(sock);
 }

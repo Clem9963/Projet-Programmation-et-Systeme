@@ -21,3 +21,4 @@ void ecritDansConv(char *buffer, char conversation[LINES - 6][TAILLE_BUF], int *
 void concatener(char *buffer, char *pseudo);
 void initInterface(WINDOW *fenHaut, WINDOW *fenBas);
 void rafraichit(WINDOW *fenHaut, WINDOW *fenBas);
+void effaceMemoire(int sock, WINDOW *fenHaut, WINDOW *fenBas);
