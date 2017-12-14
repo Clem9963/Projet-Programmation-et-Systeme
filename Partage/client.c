@@ -8,10 +8,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "client.h"
 #include "client_functions.h"
-
-#define TRUE 1
-#define FALSE 0
 
 int main(int argc, char *argv[])
 {
@@ -20,10 +18,13 @@ int main(int argc, char *argv[])
 	-> L'adresse IP du serveur
 	-> Le port du serveur */
 
-	char buffer[1024] = "";		// Buffer de 1024 octets pour l'envoi ou la réception de paquets à travers le réseau
-	char path[512] = "";
+	char buffer[BUFFER_SIZE] = "";		// Buffer de 1024 octets pour l'envoi ou la réception de paquets à travers le réseau
+	char path[PATH_SIZE] = "";
+	char dest_username[USERNAME_SIZE] = "";
 
-	int server_sock = 0;
+	int msg_server_sock = 0;
+	int file_server_sock = 0;
+	int max_fd = 0;
 	int selector = 0;
 	fd_set readfs;
 
@@ -42,39 +43,40 @@ int main(int argc, char *argv[])
 	/* Initialisation de la connexion */
 
 	username = argv[1];
-	if (strlen(username) > 15)
+	if (strlen(username) > USERNAME_SIZE-1)
 	{
-		username[15] = '\0';	// Pas de pseudo trop long !
+		username[USERNAME_SIZE-1] = '\0';	// Pas de pseudo trop long !
 	}
 	address = argv[2];
 	port = atoi(argv[3]);
 
-	server_sock = connectSocket(address, port);
-
-	sendServer(server_sock, username);
+	connectSocket(address, port, &msg_server_sock, &file_server_sock);
+	sendServer(msg_server_sock, username);
+	max_fd = (msg_server_sock >= file_server_sock) ? msg_server_sock : file_server_sock;
 
 	/* Traitement des requêtes */
 
 	while(TRUE)
 	{
 		FD_ZERO(&readfs);
-		FD_SET(server_sock, &readfs);
+		FD_SET(msg_server_sock, &readfs);
+		FD_SET(file_server_sock, &readfs);
 		FD_SET(STDIN_FILENO, &readfs);
 
-		if((selector = select(server_sock + 1, &readfs, NULL, NULL, NULL)) < 0)
+		if((selector = select(max_fd + 1, &readfs, NULL, NULL, NULL)) < 0)
 		{
 			perror("select error");
 			exit(errno);
 		}
 		
-		if(FD_ISSET(server_sock, &readfs))
+		if(FD_ISSET(msg_server_sock, &readfs))
 		{
 			/* Des données sont disponibles sur la socket du serveur */
 
-			if (!recvServer(server_sock, buffer, sizeof(buffer)))
+			if (!recvServer(msg_server_sock, buffer, sizeof(buffer)))
 			{
 				printf("Le serveur n'est plus joignable\n");
-				close(server_sock);
+				close(msg_server_sock);
 				exit(EXIT_SUCCESS);
 			}
 			else
@@ -108,12 +110,18 @@ int main(int argc, char *argv[])
 
 			if (strncmp(buffer, "/sendto", 7))
 			{
-				printf("Rappel de syntaxe : \"/sendto <dest_username>\n");
+				/* Le buffer ne commence pas par /sendto -> message normal */
+				sendServer(msg_server_sock, buffer);
 			}
 			else
 			{
-				sendServer(server_sock, buffer);					// Envoi de la requête de transfert
-				recvServer(server_sock, buffer, sizeof(buffer));	// Réception d'un octet représentant la vérification du serveur -> 1 si OK, 0 sinon
+				if (verifySendingRequest(buffer, dest_username, path))
+				{
+					if (verifyDirectory(path))
+					{
+						sendServer(file_server_sock, buffer);
+					}
+				}
 			}
 		}
 	}

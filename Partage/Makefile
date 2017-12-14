@@ -12,7 +12,8 @@ ifeq ($(LIB),static)
 	LFLAGS=-static
 endif
 
-# Règles
+# Règles Linkage
+
 all : server client
 
 server : Object_files/server.o Object_files/server_functions.o
@@ -26,6 +27,8 @@ client : Object_files/client.o Object_files/client_functions.o
 	@echo Exécutable généré via $(COMPILER) en mode $(BUILD) $(LIB)
 
 
+# Règles Compilation
+
 Object_files/server.o : server.c
 	$(COMPILER) $(LFLAGS) $(CFLAGS) -I Headers -c server.c -o Object_files/server.o
 
@@ -37,6 +40,7 @@ Object_files/server_functions.o : Sources/server_functions.c
 
 Object_files/client_functions.o : Sources/client_functions.c
 	$(COMPILER) $(LFLAGS) $(CFLAGS) -I Headers -c Sources/client_functions.c -o Object_files/client_functions.o
+
 
 # Suppression des fichiers objets
 

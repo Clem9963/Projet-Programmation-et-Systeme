@@ -1,2 +1,4 @@
-Partage/executable.bin
+Partage/*.bin
+Partage/Network's_design/.*
+Partage/Test_files/*.bin
 
