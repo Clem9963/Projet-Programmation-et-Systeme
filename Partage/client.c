@@ -27,6 +27,8 @@ int main(int argc, char *argv[])
 	int max_fd = 0;
 	int selector = 0;
 	fd_set readfs;
+	pthread_t file_transfert = 0;
+	int thread_status = 0;				// 0 Inactif, 1 En cours d'éxécution, -1 éxécution terminée
 
 	int reset = 0;
 	char *char_ptr = NULL;
@@ -68,7 +70,7 @@ int main(int argc, char *argv[])
 			perror("select error");
 			exit(errno);
 		}
-		
+
 		if(FD_ISSET(msg_server_sock, &readfs))
 		{
 			/* Des données sont disponibles sur la socket du serveur */
@@ -120,6 +122,23 @@ int main(int argc, char *argv[])
 					if (verifyDirectory(path))
 					{
 						sendServer(file_server_sock, buffer);
+						recvServer(file_server_sock, buffer, sizeof(buffer));
+						if (buffer[0] == -1)
+						{
+							fprintf(stderr, "L'username n'est pas connu par le serveur\n");
+						}
+						else if (buffer[0] == -2)
+						{
+							printf("Un transfert est déjà en cours, patientez...\n");
+						}
+						else if (buffer[0] == 0)
+						{
+							printf("Le destinataire ne souhaite pas recevoir le fichier\nIl a peut-être peur de vous...\n");
+						}
+						else
+						{
+							/* Lancement du thread */
+						}
 					}
 				}
 			}
