@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -66,6 +67,66 @@ int verifySendingRequest(char *buffer, char *dest_username, char *path)
 	}
 
 	return TRUE;
+}
+
+void *transferSendControl(void *src_data)
+{
+	struct TransferDetails *data = (struct TransferDetails *)src_data;
+	char buffer[BUFFER_SIZE] = "";
+	long int size = 0;
+	int size_residue = 0;
+	int package_number = 0;
+	int i = 0;
+
+	while(pthread_mutex_lock(data->mutex_thread_status) == EDEADLK)
+	{
+		continue;
+	}
+
+	FILE *f = NULL;
+
+	f = fopen(data->path, "r");
+	if (f == NULL)
+	{
+		fprintf(stderr, "Envoi impossible : le chemin n'est pas valide ou le fichier est inexistant\n");
+		buffer[0] = -1;							// On prévient le serveur que l'on annule le transfert
+		buffer[0] = '\0';
+		sendServer(data->file_server_sock, buffer);
+		*(data->thread_status) = -1;
+		pthread_mutex_unlock(data->mutex_thread_status);
+		pthread_exit(NULL);
+	}
+
+	fseek(f, 0, SEEK_END);
+
+	size = ftell(f);
+	package_number = size / BUFFER_SIZE-1;	// Seulement BUFFER_SIZE-1 car un '\0' est rajouté en fin de paquet pour faciliter la segmentation
+	size_residue = size % BUFFER_SIZE-1;
+	sprintf(buffer, "%d", package_number + (size_residue != 0));		// '\0' écrit par sprintf
+	sendServer(data->file_server_sock, buffer);
+
+	fseek(f, 0, SEEK_SET);
+
+	buffer[BUFFER_SIZE-1] = '\0';
+	for (i = 0; i < package_number; i++)
+	{
+		fread(buffer, BUFFER_SIZE-1, 1, f);
+		sendServer(data->file_server_sock, buffer);
+	}
+	if (size_residue != 0)
+	{
+		fread(buffer, size_residue, 1, f);
+		buffer[size_residue] = '\0';
+		sendServer(data->file_server_sock, buffer);
+	}
+
+	buffer[0] = -1;							// On met tous les bits à 1 pour le premier octet = signature de fin de transmission
+	buffer[1] = '\0';						// Sinon on risque d'envoyer d'autres octets totalement inutiles
+	sendServer(data->file_server_sock, buffer);
+
+	*(data->thread_status) = -1;
+	pthread_mutex_unlock(data->mutex_thread_status);
+	pthread_exit(NULL);
 }
 
 void connectSocket(char* address, int port, int *msg_server_sock, int *file_server_sock)

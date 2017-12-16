@@ -17,12 +17,12 @@ endif
 all : server client
 
 server : Object_files/server.o Object_files/server_functions.o
-	$(COMPILER) $(LFLAGS) $(CFLAGS) Object_files/server.o Object_files/server_functions.o -o server.bin
+	$(COMPILER) $(LFLAGS) $(CFLAGS) Object_files/server.o Object_files/server_functions.o -o server.bin -lpthread
 	@echo
 	@echo Exécutable généré via $(COMPILER) en mode $(BUILD) $(LIB)
 
 client : Object_files/client.o Object_files/client_functions.o
-	$(COMPILER) $(LFLAGS) $(CFLAGS) Object_files/client.o Object_files/client_functions.o -o client.bin
+	$(COMPILER) $(LFLAGS) $(CFLAGS) Object_files/client.o Object_files/client_functions.o -o client.bin -lpthread
 	@echo
 	@echo Exécutable généré via $(COMPILER) en mode $(BUILD) $(LIB)
 

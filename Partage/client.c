@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,9 +27,10 @@ int main(int argc, char *argv[])
 	int file_server_sock = 0;
 	int max_fd = 0;
 	int selector = 0;
+	int thread_status = 0;	// 0 Si le thread n'est pas en cours, 1 s'il est en cours et -1 s'il attend que l'on lise son code de retour
 	fd_set readfs;
-	pthread_t file_transfert = 0;
-	int thread_status = 0;				// 0 Inactif, 1 En cours d'éxécution, -1 éxécution terminée
+	pthread_t file_transfer = 0;
+	pthread_mutex_t mutex_thread_status = PTHREAD_MUTEX_INITIALIZER;
 
 	int reset = 0;
 	char *char_ptr = NULL;
@@ -69,6 +71,16 @@ int main(int argc, char *argv[])
 		{
 			perror("select error");
 			exit(errno);
+		}
+
+		if (pthread_mutex_lock(&mutex_thread_status) != EDEADLK)
+		{
+			if (thread_status == -1)
+			{
+				pthread_join(file_transfer, NULL);
+				thread_status = 0;
+			}
+			pthread_mutex_unlock(&mutex_thread_status);
 		}
 
 		if(FD_ISSET(msg_server_sock, &readfs))
@@ -115,30 +127,37 @@ int main(int argc, char *argv[])
 				/* Le buffer ne commence pas par /sendto -> message normal */
 				sendServer(msg_server_sock, buffer);
 			}
+			else if (pthread_mutex_lock(&mutex_thread_status) == EDEADLK)
+			{
+				printf("Un transfert est déjà en cours, patientez...\n");
+			}			
 			else
 			{
-				if (verifySendingRequest(buffer, dest_username, path))
+				if (thread_status == -1)
 				{
-					if (verifyDirectory(path))
+					pthread_join(file_transfer, NULL);
+					thread_status = 0;
+				}
+				pthread_mutex_unlock(&mutex_thread_status);
+				if (verifySendingRequest(buffer, dest_username, path) && verifyDirectory(path))
+				{
+					sendServer(file_server_sock, buffer);
+					recvServer(file_server_sock, buffer, sizeof(buffer));
+					if (buffer[0] == -1)
 					{
-						sendServer(file_server_sock, buffer);
-						recvServer(file_server_sock, buffer, sizeof(buffer));
-						if (buffer[0] == -1)
-						{
-							fprintf(stderr, "L'username n'est pas connu par le serveur\n");
-						}
-						else if (buffer[0] == -2)
-						{
-							printf("Un transfert est déjà en cours, patientez...\n");
-						}
-						else if (buffer[0] == 0)
-						{
-							printf("Le destinataire ne souhaite pas recevoir le fichier\nIl a peut-être peur de vous...\n");
-						}
-						else
-						{
-							/* Lancement du thread */
-						}
+						fprintf(stderr, "L'username n'est pas connu par le serveur\n");
+					}
+					else if (buffer[0] == -2)
+					{
+						printf("Un transfert est déjà en cours, patientez...\n");
+					}
+					else if (buffer[0] == 0)
+					{
+						printf("Le destinataire ne souhaite pas recevoir le fichier\nIl a peut-être peur de vous...\n");
+					}
+					else
+					{
+						// pthread_create(&file_transfer, NULL, transferSendControl, NULL);
 					}
 				}
 			}
