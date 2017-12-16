@@ -30,6 +30,53 @@ int verifyDirectory(char *path)
 	}
 }
 
+int answerSendingRequest(char *request, char *path)
+{
+	/* Cette fonction prend en paramètre une requête brute, un buffer pour intérroger le client et le path final de réception */
+	/* Elle s'occupe de demander au client destinataire s'il souhaite recevoir le fichier */
+
+	char buffer[2];
+	char *file_name = NULL;
+	char *char_ptr = NULL;
+	FILE *f = NULL;
+	int reset = 0;
+
+	strcpy(path, "/home/");
+	file_name = strrchr(request, '/')+1;
+	strcat(path, file_name);
+
+	f = fopen(path, "r");
+	if (f == NULL)
+	{
+		printf("Voulez-vous recevoir le fichier %s ?\n1 : Oui, 0 : Non\n", file_name);
+		if (fgets(buffer, sizeof(buffer), stdin) == NULL)
+		{
+			perror("fgets error");
+			exit(errno);
+		}
+
+		char_ptr = strchr(buffer, '\n');
+		if (char_ptr != NULL)
+		{
+			*char_ptr = '\0';
+		}
+		else
+		{
+			while (reset != '\n' && reset != EOF)
+			{
+				reset = getchar();
+			}
+		}
+		return atoi(buffer);
+	}
+	else
+	{
+		printf("Quelqu'un souhaite vous envoyer le fichier %s mais il existe déjà dans /home/\n", file_name);
+		fclose(f);
+		return 0;
+	}
+}
+
 int verifySendingRequest(char *buffer, char *dest_username, char *path)
 {
 	/* Fonction vérifiant l'intégrité et la validité d'une requête /sendto 	*/
@@ -71,10 +118,12 @@ int verifySendingRequest(char *buffer, char *dest_username, char *path)
 
 void *transferSendControl(void *src_data)
 {
+	/* Fonction gérant l'envoi du fichier */
+
 	struct TransferDetails *data = (struct TransferDetails *)src_data;
 	char buffer[BUFFER_SIZE] = "";
 	long int size = 0;
-	int size_residue = 0;
+	int residue_size = 0;
 	int package_number = 0;
 	int i = 0;
 
@@ -85,13 +134,12 @@ void *transferSendControl(void *src_data)
 
 	FILE *f = NULL;
 
-	f = fopen(data->path, "r");
+	f = fopen(data->path, "rb");
 	if (f == NULL)
 	{
 		fprintf(stderr, "Envoi impossible : le chemin n'est pas valide ou le fichier est inexistant\n");
-		buffer[0] = -1;							// On prévient le serveur que l'on annule le transfert
-		buffer[0] = '\0';
-		sendServer(data->file_server_sock, buffer);
+		strcpy(buffer, "/abort");
+		sendServer(data->msg_server_sock, buffer, strlen(buffer)+1);
 		*(data->thread_status) = -1;
 		pthread_mutex_unlock(data->mutex_thread_status);
 		pthread_exit(NULL);
@@ -100,32 +148,84 @@ void *transferSendControl(void *src_data)
 	fseek(f, 0, SEEK_END);
 
 	size = ftell(f);
-	package_number = size / BUFFER_SIZE-1;	// Seulement BUFFER_SIZE-1 car un '\0' est rajouté en fin de paquet pour faciliter la segmentation
-	size_residue = size % BUFFER_SIZE-1;
-	sprintf(buffer, "%d", package_number + (size_residue != 0));		// '\0' écrit par sprintf
-	sendServer(data->file_server_sock, buffer);
+	package_number = size / BUFFER_SIZE;	// Pas de '\0' pour fermer le segment car il risque déjà d'y avoir des caractères NULL dans le buffer
+	residue_size = size % BUFFER_SIZE;
+	sprintf(buffer, "%d %d", package_number, residue_size);			// '\0' écrit par sprintf
+	sendServer(data->file_server_sock, buffer, strlen(buffer)+1);
+	recvServer(data->file_server_sock, buffer, 1);		// Accusé de réception pour la synchronisation
 
 	fseek(f, 0, SEEK_SET);
 
-	buffer[BUFFER_SIZE-1] = '\0';
-	for (i = 0; i < package_number; i++)
+	for (i = 0; i < package_number; i++)	// Paquets normaux (de 1024 octets)
 	{
-		fread(buffer, BUFFER_SIZE-1, 1, f);
-		sendServer(data->file_server_sock, buffer);
+		fread(buffer, BUFFER_SIZE, 1, f);
+		sendServer(data->file_server_sock, buffer, sizeof(buffer));
 	}
-	if (size_residue != 0)
+	if (residue_size != 0)					// Traitement du dernier paquet s'il n'est pas constitué de 1024 octets
 	{
-		fread(buffer, size_residue, 1, f);
-		buffer[size_residue] = '\0';
-		sendServer(data->file_server_sock, buffer);
+		fread(buffer, residue_size, 1, f);
+		sendServer(data->file_server_sock, buffer, residue_size);
 	}
-
-	buffer[0] = -1;							// On met tous les bits à 1 pour le premier octet = signature de fin de transmission
-	buffer[1] = '\0';						// Sinon on risque d'envoyer d'autres octets totalement inutiles
-	sendServer(data->file_server_sock, buffer);
 
 	*(data->thread_status) = -1;
 	pthread_mutex_unlock(data->mutex_thread_status);
+	printf("L'envoi s'est parfaitement déroulé !\n");
+	pthread_exit(NULL);
+}
+
+void *transferRecvControl(void *src_data)
+{
+	/* Fonction gérant la réception du fichier */
+	/* Attention ! path doit être l'endroit où l'on va enregistrer le fichier */
+	/* D'ailleurs, le cas de préexistence de ce dernier doit déjà avoir été traité */
+
+	struct TransferDetails *data = (struct TransferDetails *)src_data;
+	char buffer[BUFFER_SIZE] = "";
+	char *char_ptr = NULL;
+	int package_number = 0;
+	int residue_size = 0;
+	int i = 0;
+
+	while(pthread_mutex_lock(data->mutex_thread_status) == EDEADLK)
+	{
+		continue;
+	}
+
+	FILE *f = NULL;
+
+	f = fopen(data->path, "wb");
+	if (f == NULL)
+	{
+		fprintf(stderr, "Réception impossible : le chemin n'est pas valide\n");
+		strcpy(buffer, "/abort");
+		sendServer(data->msg_server_sock, buffer, strlen(buffer)+1);
+		*(data->thread_status) = -1;
+		pthread_mutex_unlock(data->mutex_thread_status);
+		pthread_exit(NULL);
+	}
+
+	recvServer(data->file_server_sock, buffer, sizeof(buffer));		// Réception du nombre de paquets et de la taille du dernier paquet
+	char_ptr = strchr(buffer, ' ');
+	*char_ptr = '\0';
+	package_number = atoi(buffer);
+	residue_size = atoi(char_ptr + 1);
+	buffer[0] = -1;
+	sendServer(data->file_server_sock, buffer, 1);		// Accusé de réception pour la synchronisation
+
+	for (i = 0; i < package_number; i++)
+	{
+		recvServer(data->file_server_sock, buffer, sizeof(buffer));
+		fwrite(buffer, sizeof(buffer), 1, f);
+	}
+	if (residue_size != 0)
+	{
+		recvServer(data->file_server_sock, buffer, sizeof(buffer));
+		fwrite(buffer, residue_size, 1, f);
+	}
+
+	*(data->thread_status) = -1;
+	pthread_mutex_unlock(data->mutex_thread_status);
+	printf("La réception s'est parfaitement déroulée !\n");
 	pthread_exit(NULL);
 }
 
@@ -208,9 +308,9 @@ int recvServer(int sock, char *buffer, size_t buffer_size)
 	return TRUE;
 }
 
-int sendServer(int sock, char *buffer)
+int sendServer(int sock, char *buffer, size_t buffer_size)	// On pourra utiliser strlen(buffer)+1 pour buffer_size si l'on envoie une chaîne de caractères
 {
-	if (send(sock, buffer, strlen(buffer)+1, 0) == SOCKET_ERROR) 	// Le +1 représente le caractère nul
+	if (send(sock, buffer, buffer_size, 0) == SOCKET_ERROR)
 	{
 		perror("send error");
 		exit(errno);
