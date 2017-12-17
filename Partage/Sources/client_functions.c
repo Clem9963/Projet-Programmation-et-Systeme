@@ -279,7 +279,7 @@ void connectSocket(char* address, int port, int *msg_server_sock, int *file_serv
 	}
 
 	sin.sin_addr = *(struct in_addr*) hostinfo->h_addr; /* on spécifie l'adresse */
-	sin.sin_port = htons(port+1); /* le port +1 pour bien se connecter au socket du serveur destiné aux fichiers */
+	sin.sin_port = htons(port); /* le port +1 pour bien se connecter au socket du serveur destiné aux fichiers */
 	sin.sin_family = AF_INET; /* et le protocole (AF_INET pour IP) */
 
 	if (connect(*file_server_sock, (struct sockaddr*) &sin, sizeof(struct sockaddr)) == SOCKET_ERROR) /* demande de connexion */

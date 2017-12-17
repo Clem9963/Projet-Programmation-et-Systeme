@@ -135,6 +135,10 @@ int main(int argc, char *argv[])
 								thread_status = 0;
 							}
 						}
+						else
+						{
+							printf("Le fichier ne sera pas reçu\n");
+						}
 					}
 					pthread_mutex_unlock(&mutex_thread_status);
 				}

@@ -1,7 +1,28 @@
 #ifndef SERVER_FUNCTIONS_H_INCLUDED
 #define SERVER_FUNCTIONS_H_INCLUDED
 
-void getDirectory(char *path, size_t length);
-int init_server(int port);
+#define h_addr h_addr_list[0]
+#define SOCKET_ERROR -1			/* code d'erreur des sockets  */
+
+struct Client
+{
+	char username[16];
+	int msg_client_sock;
+	int file_client_sock;
+};
+
+/* Fonction d'initialisation*/
+int listenSocket(int port);
+
+/* Gestion des clients */
+struct Client newClient(int ssock, int *nb_c, int *max_fd);
+void rmvClient(struct Client *clients, int i_to_remove, int *nb_c, int *max_fd, int server_sock);
+
+/* Envoi et réception */
+int recvClient(int sock, char *buffer, size_t buffer_size);
+int sendClient(int sock, char *buffer, size_t buffer_size);
+
+/* Fonction annexe */
+int max(int a, int b);
 
 #endif
