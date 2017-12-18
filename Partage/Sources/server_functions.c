@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,6 +41,97 @@ int listenSocket(int port)
 	}
 
 	return passive_sock;
+}
+
+int getClient(struct Client *clients, int clients_nb, char *buffer)
+{
+	/* Fonction retournant l'indice du client dont l'username est celui de la requête /sendto */
+	/* La fonction retourne -1 s'il n'u a aucun client correspondant */
+	/* Elle prend en argument le tableau des clients, le nombre de clients actifs */
+	/* et la requête /sendto dans buffer qui est une chaîne de caractères */
+
+	char username[BUFFER_SIZE] = "";		// Il faudra penser à réadapter la fonction pour qu'elle soit plus optimisée
+	int found = 0;
+	int i = 0;
+
+	strcpy(username, strchr(buffer, ' ') + 1);
+	*(strchr(username, ' ')) = '\0';
+	while (!found && i < clients_nb)
+	{
+		found = !strcmp(username, clients[i].username);
+		i++;
+	}
+
+	if (found)
+	{
+		i--;
+		return i;
+	}
+	else
+	{
+		return -1;
+	}
+}
+
+void *transferControl(void *src_data)
+{
+	/* Fonction gérant le transit du fichier par le serveur */
+
+	struct TransferDetails *data = (struct TransferDetails *)src_data;
+	char buffer[BUFFER_SIZE] = "";
+	char *char_ptr = NULL;
+	int answer = 0;
+	int package_number = 0;
+	int residue_size = 0;
+	int i = 0;
+
+	while(pthread_mutex_lock(data->mutex_thread_status) == EDEADLK)
+	{
+		continue;
+	}
+
+	sendClient(data->receiving_client.msg_client_sock, data->request, strlen(data->request)+1);
+	recvClient(data->receiving_client.file_client_sock, buffer, sizeof(buffer));
+
+	answer = atoi(buffer);
+	if (!answer)
+	{
+		sprintf(buffer, "%d", answer);
+		sendClient(data->sending_client.file_client_sock, buffer, strlen(buffer)+1);
+		*(data->thread_status) = -1;
+		pthread_mutex_unlock(data->mutex_thread_status);
+		printf("Refus du transfert\n");
+		pthread_exit(NULL);
+	}
+
+	printf("Le transfert a été accepté par le client destinataire\n");
+
+	sendClient(data->sending_client.file_client_sock, buffer, strlen(buffer)+1);
+
+	recvClient(data->sending_client.file_client_sock, buffer, sizeof(buffer));		// Réception du nombre de paquets et de la taille du dernier paquet
+	sendClient(data->receiving_client.file_client_sock, buffer, sizeof(buffer));
+	char_ptr = strchr(buffer, ' ');
+	*char_ptr = '\0';
+	package_number = atoi(buffer);
+	residue_size = atoi(char_ptr + 1);
+	recvClient(data->receiving_client.file_client_sock, buffer, sizeof(buffer));		// Réception de l'accusé de réception
+	sendClient(data->sending_client.file_client_sock, buffer, 1);						// Accusé de réception pour la synchronisation
+
+	for (i = 0; i < package_number; i++)
+	{
+		recvClient(data->sending_client.file_client_sock, buffer, sizeof(buffer));
+		sendClient(data->receiving_client.file_client_sock, buffer, sizeof(buffer));
+	}
+	if (residue_size != 0)
+	{
+		recvClient(data->sending_client.file_client_sock, buffer, sizeof(buffer));
+		sendClient(data->receiving_client.file_client_sock, buffer, residue_size);
+	}
+
+	*(data->thread_status) = -1;
+	pthread_mutex_unlock(data->mutex_thread_status);
+	printf("Le transfert s'est parfaitement déroulé !\n");
+	pthread_exit(NULL);
 }
 
 struct Client newClient(int ssock, int *nb_c, int *max_fd)

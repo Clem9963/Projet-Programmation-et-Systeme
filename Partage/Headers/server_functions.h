@@ -11,8 +11,21 @@ struct Client
 	int file_client_sock;
 };
 
+struct TransferDetails
+{
+	struct Client sending_client;
+	struct Client receiving_client;
+	char *request;
+	int *thread_status;
+	pthread_mutex_t *mutex_thread_status;
+};
+
 /* Fonction d'initialisation*/
 int listenSocket(int port);
+
+/* Fonctions relatives à la requête /sendto */
+int getClient(struct Client *clients, int clients_nb, char *buffer);
+void *transferControl(void *src_data);
 
 /* Gestion des clients */
 struct Client newClient(int ssock, int *nb_c, int *max_fd);

@@ -44,6 +44,7 @@ int main(int argc, char *argv[])
 	if (argc != 4)
 	{
 		fprintf(stderr, "Nombre d'arguments fournis incorrect\n");
+		exit(EXIT_FAILURE);
 	}
 
 	/* Initialisation de la connexion */
@@ -109,6 +110,8 @@ int main(int argc, char *argv[])
 					if (thread_status == 1)
 					{
 						printf("Un transfert est déjà en cours, patientez...\n");
+						sprintf(buffer, "%d", 0);
+						sendServer(file_server_sock, buffer, strlen(buffer)+1);
 					}
 					else if (thread_status == -1)
 					{
@@ -122,6 +125,7 @@ int main(int argc, char *argv[])
 						sendServer(file_server_sock, buffer, strlen(buffer)+1);
 						if (answer)
 						{
+							printf("Vous avez accepté le transfert\n");
 							data.path = path;
 							data.file_server_sock = file_server_sock;
 							data.msg_server_sock = msg_server_sock;
@@ -203,15 +207,16 @@ int main(int argc, char *argv[])
 					{
 						sendServer(msg_server_sock, buffer, strlen(buffer)+1);		// Envoi de la requête brute
 						recvServer(file_server_sock, buffer, sizeof(buffer));
-						if (buffer[0] == -1)
+						answer = atoi(buffer);
+						if (answer == -1)
 						{
 							fprintf(stderr, "L'username n'est pas connu par le serveur\n");
 						}
-						else if (buffer[0] == -2)
+						else if (answer == -2)
 						{
 							printf("Un transfert est déjà en cours, patientez...\n");
 						}
-						else if (buffer[0] == 0)
+						else if (answer == 0)
 						{
 							printf("Le destinataire ne souhaite pas recevoir le fichier\nIl a peut-être peur de vous...\n");
 						}

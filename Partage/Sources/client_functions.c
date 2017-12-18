@@ -41,7 +41,7 @@ int answerSendingRequest(char *request, char *path)
 	FILE *f = NULL;
 	int reset = 0;
 
-	strcpy(path, "/home/");
+	strcpy(path, "/home/clement/Reception/");
 	file_name = strrchr(request, '/')+1;
 	strcat(path, file_name);
 
@@ -71,7 +71,7 @@ int answerSendingRequest(char *request, char *path)
 	}
 	else
 	{
-		printf("Quelqu'un souhaite vous envoyer le fichier %s mais il existe déjà dans /home/\n", file_name);
+		printf("Quelqu'un souhaite vous envoyer le fichier %s mais il existe déjà (%s)\n", file_name, path);
 		fclose(f);
 		return 0;
 	}
@@ -137,11 +137,13 @@ void *transferSendControl(void *src_data)
 	f = fopen(data->path, "rb");
 	if (f == NULL)
 	{
-		fprintf(stderr, "Envoi impossible : le chemin n'est pas valide ou le fichier est inexistant\n");
 		strcpy(buffer, "/abort");
 		sendServer(data->msg_server_sock, buffer, strlen(buffer)+1);
+
+		fclose(f);
 		*(data->thread_status) = -1;
 		pthread_mutex_unlock(data->mutex_thread_status);
+		fprintf(stderr, "Envoi impossible : le chemin n'est pas valide ou le fichier est inexistant\n");
 		pthread_exit(NULL);
 	}
 
@@ -167,6 +169,7 @@ void *transferSendControl(void *src_data)
 		sendServer(data->file_server_sock, buffer, residue_size);
 	}
 
+	fclose(f);
 	*(data->thread_status) = -1;
 	pthread_mutex_unlock(data->mutex_thread_status);
 	printf("L'envoi s'est parfaitement déroulé !\n");
@@ -192,15 +195,17 @@ void *transferRecvControl(void *src_data)
 	}
 
 	FILE *f = NULL;
-
+	printf("%s\n", data->path);
 	f = fopen(data->path, "wb");
 	if (f == NULL)
 	{
-		fprintf(stderr, "Réception impossible : le chemin n'est pas valide\n");
 		strcpy(buffer, "/abort");
 		sendServer(data->msg_server_sock, buffer, strlen(buffer)+1);
+
+		fclose(f);
 		*(data->thread_status) = -1;
 		pthread_mutex_unlock(data->mutex_thread_status);
+		fprintf(stderr, "Réception impossible : le chemin n'est pas valide\n");
 		pthread_exit(NULL);
 	}
 
@@ -223,6 +228,7 @@ void *transferRecvControl(void *src_data)
 		fwrite(buffer, residue_size, 1, f);
 	}
 
+	fclose(f);
 	*(data->thread_status) = -1;
 	pthread_mutex_unlock(data->mutex_thread_status);
 	printf("La réception s'est parfaitement déroulée !\n");
