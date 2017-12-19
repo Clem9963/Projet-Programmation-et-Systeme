@@ -5,9 +5,10 @@ int main(int argc, char *argv[]){
 	//initialisation des variables
 	char buffer[TAILLE_BUF];
 	int sock;
-	int ligne = 0;
+	int ligne = 0, lettre, longueurMessageEntre = 0;
 	char pseudo[TAILLE_PSEUDO];
 	char ipAdresse[15]; 
+	char bufferMessageEntre[TAILLE_BUF];
 	fd_set readfds;	
 	WINDOW *fenHaut, *fenBas;
 	
@@ -20,6 +21,7 @@ int main(int argc, char *argv[]){
 
 	//Initialisation de l'interface graphique
 	initscr();
+	keypad(stdscr, TRUE); //pour récupérer les touches spéciales du clavier
 	fenHaut = subwin(stdscr, LINES - 3, COLS, 0, 0);
     fenBas = subwin(stdscr, 3, COLS, LINES - 3, 0);
 	initInterface(fenHaut, fenBas);
@@ -28,10 +30,12 @@ int main(int argc, char *argv[]){
     //car il faut la faire après initscr())
 	char conversation[LINES - 6][TAILLE_BUF];
 
+	//se positionn au bon endroit pour ecrire le message
+	move(LINES - 2, 11);
+
 	//boucle du chat
 	while(1)
 	{
-		move(LINES - 2, 11);//se positionn au bon endroit pour ecrire le message
 		FD_ZERO(&readfds); //met à 0 le readfds
 		FD_SET(STDIN_FILENO, &readfds); //remplit le readfds
 		FD_SET(sock, &readfds);
@@ -50,24 +54,54 @@ int main(int argc, char *argv[]){
 		}
 		else if(FD_ISSET(STDIN_FILENO, &readfds))
 		{
-			getnstr(buffer, COLS - 13); //bloque si la ligne est remplie
-			buffer[strlen(buffer)] = '\0';
+			//récupère la lettre entrée
+			lettre = getch();
 			
-			//se déconnecte du chat si le message est deconnexion
-			if(strcmp(buffer, "deconnexion") == 0)
+			//si ce n'est pas la touch entrée et que l'on n'a pas remplit la ligne
+			//10 = touche entrée
+			if(lettre != 10 && longueurMessageEntre < COLS - 14)
 			{
-				effaceMemoire(sock, fenHaut, fenBas);
-				printf("\nDeconnexion réussie\n\n");
-				exit(-1);
+				//on met la lettre dans le bufferMessagEntre
+				bufferMessageEntre[longueurMessageEntre] = lettre;
+				longueurMessageEntre++;
+				move(LINES - 2, 11 + longueurMessageEntre); //met le curseur au bon endroit
+				wrefresh(fenBas); //rafraichit
 			}
 			else
 			{
-				write_serveur(sock, buffer); //envoi le message au serveur
+				//si on est au bout de la ligne d'écriture on stop la saisie
+				if(longueurMessageEntre >= COLS - 13-1)
+					getnstr(" ", 0);
 				
-				//ecrit le message dans la conversation en rajouter "vous" devant
-				concatener(buffer, "Vous");
-				ecritDansConv(buffer, conversation, &ligne, fenHaut, fenBas);
-        	}
+				//on met le buffer
+				bufferMessageEntre[longueurMessageEntre] = '\0';
+				longueurMessageEntre = 0;
+
+				//se déconnecte du chat si le message est "/quit"
+				if(strcmp(bufferMessageEntre, "/quit") == 0)
+				{
+					effaceMemoire(sock, fenHaut, fenBas);
+					printf("\nDeconnexion réussie\n\n");
+					exit(-1);
+				}
+				//verifie que le message n'est pas null
+				else if(strcmp(bufferMessageEntre, "") != 0)
+				{
+					write_serveur(sock, bufferMessageEntre); //envoi le message au serveur
+					
+					//si le message n'est pas la commande "/list" on affiche le message
+					if(strcmp(bufferMessageEntre, "/list") != 0)
+					{
+						//ecrit le message dans la conversation en rajouter "vous" devant
+						concatener(bufferMessageEntre, "Vous");
+						ecritDansConv(bufferMessageEntre, conversation, &ligne, fenHaut, fenBas);
+	        		}
+	        	}
+	        	strcpy(bufferMessageEntre, " "); // on efface le buffer
+	        	move(LINES - 2, 11); //on se remet au debut de la ligne du message
+				wclrtoeol(fenBas); //on supprime le message saisie
+				rafraichit(fenHaut, fenBas);
+	        }
         }
     }
 
@@ -203,9 +237,8 @@ void ecritDansConv(char *buffer, char conversation[LINES - 6][TAILLE_BUF], int *
     else
     {
     	//effacer l'affichage de la conversation
-    	for(i = 0; i < LINES - 6; i++)
-    		for(j = 0; j < strlen(conversation[i]); j++)
-    			mvwprintw(fenHaut, 2 + i , 1 + j, " ");
+		werase(fenHaut);
+		mvwprintw(fenHaut, 1, 1,"Messages : "); //remet le texte "messages :"
 
     	//decalage vers le haut
     	for(i = 0; i < LINES - 7; i++)
@@ -226,7 +259,6 @@ void ecritDansConv(char *buffer, char conversation[LINES - 6][TAILLE_BUF], int *
 
 //raffraichit l'interface
 void rafraichit(WINDOW *fenHaut, WINDOW *fenBas){
-	wclrtoeol(fenBas);
     box(fenBas, ACS_VLINE, ACS_HLINE);//recrée les cadres
     box(fenHaut, ACS_VLINE, ACS_HLINE);
     wrefresh(fenHaut);

@@ -3,12 +3,13 @@
 int main(){
 
 	//initialisation des variables
-	int i;
+	int i, succes = 0;
 	int nbClients = 0;
 	int sockServeur = socket(AF_INET, SOCK_STREAM, 0); //Création d'un socket TCP
 	int listeSock[NB_CLIENT_MAX];
 	char listePseudo[NB_CLIENT_MAX][TAILLE_PSEUDO];	
 	char buffer[TAILLE_BUF];
+	char *pseudo;
 	struct sockaddr_in csin; 
 	fd_set readfds;
 	socklen_t taille = sizeof(struct sockaddr_in);
@@ -52,10 +53,56 @@ int main(){
 		//ecoute de l'entrée standart
 		else if(FD_ISSET(STDIN_FILENO, &readfds))
 		{
-			//recupere le message et l'envoi message a tout le monde
+			//recupere le message
 			fgets(buffer, TAILLE_BUF, stdin);
-			concatener(buffer, "Serveur");
-			envoiMessageTous(listeSock, buffer, &nbClients);
+			//si /quit on quitte le serveur
+			if(strncmp(buffer, "/quit", 5) == 0)
+			{
+				close(sockServeur);
+				printf("\n\nDéconnexion réussie\n");
+				exit(-1);
+			}
+			//si /kick ... on déconnecte le client demandé
+			else if(strncmp(buffer, "/kick", 5) == 0)
+			{
+				//pour récuperer le pseudo rentré en deuxième parametre
+				pseudo = strtok(buffer, " ");
+				pseudo = strtok(NULL, " ");
+				if (pseudo != NULL)
+				{	
+					succes = 0;
+					pseudo[strlen(pseudo) - 1] = '\0';
+					//on cherche le client en comparant avec la liste des pseudos
+					for(i = 0; i < nbClients; i++)
+					{
+						if(strcmp(listePseudo[i], pseudo) == 0)
+						{
+							deconnexionClient(listeSock, i, &nbClients, listePseudo);
+							printf("%s déconnecté avec succès \n", pseudo);
+							succes = 1;
+						}
+					}
+
+					//verifie que le client a bien été deconnecté
+					if(succes == 0)
+						printf("Le client n'existe pas !\n");
+				}
+				else
+					printf("Veuillez rentré un pseudo !\n");
+			}
+			//si /list on liste les clients connectés
+			else if(strncmp(buffer, "/list", 5) == 0)
+			{
+				printf("\nVoici les clients connectés : \n");
+				for (i = 0; i < nbClients; i++)
+					printf("%s\n", listePseudo[i]);
+			}
+			//sinon on envoie aux clients
+			else
+			{
+				concatener(buffer, "Serveur");
+				envoiMessageTous(listeSock, buffer, &nbClients);
+			}
 		}
 		//ecoute les sockets clients
 		else
@@ -171,15 +218,37 @@ void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, cha
 	else
 	{
 		buffer[taille_recue] = '\0';
-		concatener(buffer, listePseudo[indice]);
-		printf("%s\n", buffer);
-		envoiMessageAutresClients(listeSock, indice, buffer, nbClients);
+
+		//verifie que le message n'est pas la commande "/list"
+		//si c'est "/list" alors on envoit les pseudos des personnes 
+		//connectés au client qui les a demandé
+		if(strcmp(buffer, "/list") == 0)
+		{
+			printf("%s : /list\n", listePseudo[indice]);
+			strcpy(buffer, "Les clients connectés sont : ");
+			for (i = 0; i < *nbClients; i++)
+			{
+				if(i != indice)
+					strcat(buffer, listePseudo[i]);
+				else
+					strcat(buffer, "vous");
+					
+				strcat(buffer, ", ");
+			}
+			envoiMessage(listeSock[indice], buffer);
+		}
+		else
+		{
+			concatener(buffer, listePseudo[indice]);
+			printf("%s\n", buffer);
+			envoiMessageAutresClients(listeSock, indice, buffer, nbClients);
+		}
 	}
 }
 
 //deconnexion d'un client
 void deconnexionClient(int *listeSock, int indice, int *nbClients, char listePseudo[NB_CLIENT_MAX][TAILLE_PSEUDO]){
-	int i, j;
+	int i;
 
 	if(close(listeSock[indice]) == -1)// ferme le socket
 	{
@@ -189,26 +258,16 @@ void deconnexionClient(int *listeSock, int indice, int *nbClients, char listePse
 	listeSock[indice] = 0;
 	strcpy(listePseudo[indice], "");
 
-	// refaire la listeSock et listepseudo bien comme il faut
-	for(i = 0; i < *nbClients; i++)
-	{
-		if(listeSock[i] == 0)
-		{
-			for (j = i + 1; j < *nbClients; j++)
-			{
-				if(listeSock[j] != 0)
-				{
-					listeSock[i] = listeSock[j];
-					listeSock[j] = 0;
-					strcpy(listePseudo[i], listePseudo[j]);
-					strcpy(listePseudo[j], "");
-				}
-				break;
-			}
-		}
-	}
-
 	(*nbClients)--;// diminue le nombre de clients
+
+	// refaire la listeSock et listepseudo bien comme il faut
+	for(i = indice; i < *nbClients; i++)
+	{
+		listeSock[i] = (int)listeSock[i + 1];
+		strcpy(listePseudo[i], listePseudo[i + 1]);
+		listeSock[i + 1] = 0;
+		strcpy(listePseudo[i + 1], "");
+	}
 }
 
 //concatenation du pseudo devant le message
