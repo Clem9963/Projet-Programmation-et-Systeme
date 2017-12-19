@@ -121,11 +121,19 @@ void *transferControl(void *src_data)
 	{
 		recvClient(data->sending_client.file_client_sock, buffer, sizeof(buffer));
 		sendClient(data->receiving_client.file_client_sock, buffer, sizeof(buffer));
+
+		/* Accusé de réception (pour la synchronisation) */
+		recvClient(data->receiving_client.file_client_sock, buffer, 1);
+		sendClient(data->sending_client.file_client_sock, buffer, 1);
 	}
 	if (residue_size != 0)
 	{
 		recvClient(data->sending_client.file_client_sock, buffer, sizeof(buffer));
 		sendClient(data->receiving_client.file_client_sock, buffer, residue_size);
+
+		/* Accusé de réception (pour la synchronisation) */
+		recvClient(data->receiving_client.file_client_sock, buffer, 1);
+		sendClient(data->sending_client.file_client_sock, buffer, 1);
 	}
 
 	*(data->thread_status) = -1;

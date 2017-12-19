@@ -162,11 +162,17 @@ void *transferSendControl(void *src_data)
 	{
 		fread(buffer, BUFFER_SIZE, 1, f);
 		sendServer(data->file_server_sock, buffer, sizeof(buffer));
+
+		/* Accusé de réception (pour la synchronisation) */
+		recvServer(data->file_server_sock, buffer, 1);
 	}
 	if (residue_size != 0)					// Traitement du dernier paquet s'il n'est pas constitué de 1024 octets
 	{
 		fread(buffer, residue_size, 1, f);
 		sendServer(data->file_server_sock, buffer, residue_size);
+
+		/* Accusé de réception (pour la synchronisation) */
+		recvServer(data->file_server_sock, buffer, 1);
 	}
 
 	fclose(f);
@@ -221,11 +227,19 @@ void *transferRecvControl(void *src_data)
 	{
 		recvServer(data->file_server_sock, buffer, sizeof(buffer));
 		fwrite(buffer, sizeof(buffer), 1, f);
+
+		buffer[0] = -1;
+		/* Accusé de réception (pour la synchronisation) */
+		sendServer(data->file_server_sock, buffer, 1);
 	}
 	if (residue_size != 0)
 	{
 		recvServer(data->file_server_sock, buffer, sizeof(buffer));
 		fwrite(buffer, residue_size, 1, f);
+
+		buffer[0] = -1;
+		/* Accusé de réception (pour la synchronisation) */
+		sendServer(data->file_server_sock, buffer, 1);
 	}
 
 	fclose(f);
