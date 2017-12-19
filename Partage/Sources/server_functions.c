@@ -119,6 +119,19 @@ void *transferControl(void *src_data)
 
 	for (i = 0; i < package_number; i++)
 	{
+		if (i == package_number / 4 && package_number >= 500000)
+		{
+			printf("< FTS > Le transfert en est à 25%%\n");
+		}
+		else if (i == package_number / 2 && package_number >= 500000)
+		{
+			printf("< FTS > Le transfert en est à 50%%\n");
+		}
+		else if (i == (package_number / 4)*3 && package_number >= 500000)
+		{
+			printf("< FTS > Le transfert en est à 75%%\n");
+		}
+		
 		recvClient(data->sending_client.file_client_sock, buffer, sizeof(buffer));
 		sendClient(data->receiving_client.file_client_sock, buffer, sizeof(buffer));
 

@@ -184,6 +184,19 @@ void *transferSendControl(void *src_data)
 
 	for (i = 0; i < package_number; i++)	// Paquets normaux (de 1024 octets)
 	{
+		if (i == package_number / 4 && package_number >= 500000)
+		{
+			printf("< FTS > Le transfert en est à 25%%\n");
+		}
+		else if (i == package_number / 2 && package_number >= 500000)
+		{
+			printf("< FTS > Le transfert en est à 50%%\n");
+		}
+		else if (i == (package_number / 4)*3 && package_number >= 500000)
+		{
+			printf("< FTS > Le transfert en est à 75%%\n");
+		}
+		
 		fread(buffer, BUFFER_SIZE, 1, f);
 		sendServer(data->file_server_sock, buffer, sizeof(buffer));
 
@@ -249,6 +262,19 @@ void *transferRecvControl(void *src_data)
 
 	for (i = 0; i < package_number; i++)
 	{
+		if (i == package_number / 4 && package_number >= 500000)
+		{
+			printf("< FTS > Le transfert en est à 25%%\n");
+		}
+		else if (i == package_number / 2 && package_number >= 500000)
+		{
+			printf("< FTS > Le transfert en est à 50%%\n");
+		}
+		else if (i == (package_number / 4)*3 && package_number >= 500000)
+		{
+			printf("< FTS > Le transfert en est à 75%%\n");
+		}
+		
 		recvServer(data->file_server_sock, buffer, sizeof(buffer));
 		fwrite(buffer, sizeof(buffer), 1, f);
 

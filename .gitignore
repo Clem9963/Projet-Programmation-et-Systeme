@@ -1,4 +1,6 @@
 Partage/*.bin
 Partage/Network's_design/.*
 Partage/Test_files/*.bin
-
+Partage/Test_files/*.avi
+Partage/Test_files/*.VOB
+Partage/Test_files/*.nds
