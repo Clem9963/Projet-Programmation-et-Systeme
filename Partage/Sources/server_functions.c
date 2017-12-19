@@ -20,7 +20,7 @@ int listenSocket(int port)
 	
 	if (passive_sock == SOCKET_ERROR)
 	{
-		perror("socket error");
+		perror("< FERROR > socket error");
 		exit(errno);
 	}
 
@@ -30,13 +30,13 @@ int listenSocket(int port)
 
 	if (bind(passive_sock, (struct sockaddr*) &sin, sizeof(sin)) == SOCKET_ERROR) /* on lie le socket à sin */
 	{
-		perror("bind error");
+		perror("< FERROR > bind error");
 		exit(errno);
 	}
 
 	if (listen(passive_sock, 1) == SOCKET_ERROR) /* notre socket est prêt à écouter une connexion à la fois */
 	{
-    	perror("listen error");
+    	perror("< FERROR > listen error");
     	exit(errno);
 	}
 
@@ -100,11 +100,11 @@ void *transferControl(void *src_data)
 		sendClient(data->sending_client.file_client_sock, buffer, strlen(buffer)+1);
 		*(data->thread_status) = -1;
 		pthread_mutex_unlock(data->mutex_thread_status);
-		printf("Refus du transfert\n");
+		printf("< FTS > Refus du transfert\n\n");
 		pthread_exit(NULL);
 	}
 
-	printf("Le transfert a été accepté par le client destinataire\n");
+	printf("< FTS > Le transfert a été accepté par le client destinataire\n");
 
 	sendClient(data->sending_client.file_client_sock, buffer, strlen(buffer)+1);
 
@@ -138,7 +138,7 @@ void *transferControl(void *src_data)
 
 	*(data->thread_status) = -1;
 	pthread_mutex_unlock(data->mutex_thread_status);
-	printf("Le transfert s'est parfaitement déroulé !\n");
+	printf("< FTS > Le transfert s'est parfaitement déroulé !\n\n");
 	pthread_exit(NULL);
 }
 
@@ -156,7 +156,7 @@ struct Client newClient(int ssock, int *nb_c, int *max_fd)
 	msg_client_sock = accept(ssock, (struct sockaddr *)&csin, &sinsize); /* accepter la connexion du client pour les messsages */
 	if (msg_client_sock == SOCKET_ERROR)
 	{
-		perror("accept error");
+		perror("< FERROR > accept error");
 		exit(errno);
 	}
 
@@ -165,7 +165,7 @@ struct Client newClient(int ssock, int *nb_c, int *max_fd)
 	file_client_sock = accept(ssock, (struct sockaddr *)&csin, &sinsize); /* accepter la connexion du client pour les fichiers */
 	if (file_client_sock == SOCKET_ERROR)
 	{
-		perror("accept error");
+		perror("< FERROR > accept error");
 		exit(errno);
 	}
 
@@ -174,7 +174,7 @@ struct Client newClient(int ssock, int *nb_c, int *max_fd)
 
 	if (recv(msg_client_sock, username, 16, 0) == SOCKET_ERROR)
 	{
-		perror("recv error");
+		perror("< FERROR > recv error");
 		exit(errno);
 	}
 
@@ -212,7 +212,7 @@ int recvClient(int sock, char *buffer, size_t buffer_size)
 	recv_outcome = recv(sock, buffer, buffer_size, 0);
 	if (recv_outcome == SOCKET_ERROR)
 	{
-		perror("recv error");
+		perror("< FERROR > recv error");
 		exit(errno);
 	}
 	else if (recv_outcome == 0)
@@ -227,7 +227,7 @@ int sendClient(int sock, char *buffer, size_t buffer_size)		// On pourra mettre 
 {
 	if (send(sock, buffer, buffer_size, 0) == SOCKET_ERROR)
 	{
-		perror("send error");
+		perror("< FERROR > send error");
 		exit(errno);
 	}
 

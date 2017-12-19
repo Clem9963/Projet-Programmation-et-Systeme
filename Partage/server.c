@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
 
 	if (argc != 2)
 	{
-		fprintf(stderr, "Arguments fournis incorrects\n");
+		fprintf(stderr, "< FERROR > Arguments fournis incorrects\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 
 		if((selector = select(max_fd + 1, &readfs, NULL, NULL, NULL)) < 0)
 		{
-			perror("select error");
+			perror("< FERROR > select error");
 			exit(errno);
 		}
 
@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
 				{
 					if (pthread_mutex_lock(&mutex_thread_status) == EDEADLK)
 					{
-						printf("Un transfert est déjà en cours, patientez...\n");
+						printf("< FTS > Un transfert est déjà en cours, patientez...\n");
 						sprintf(buffer, "%d", -2);
 						sendClient(clients[i].file_client_sock, buffer, strlen(buffer)+1);
 					}
@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
 					{
 						if (thread_status == 1)
 						{
-							printf("Un transfert est déjà en cours, patientez...\n");
+							printf("< FTS > Un transfert est déjà en cours, patientez...\n");
 							sprintf(buffer, "%d", -2);
 							sendClient(clients[i].file_client_sock, buffer, strlen(buffer)+1);
 						}
@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
 								thread_status = 1;
 								if (pthread_create(&file_transfer, NULL, transferControl, &data) != 0)
 								{
-									fprintf(stderr, "Le du transfert a échoué\n");
+									fprintf(stderr, "< FTS > Le du transfert a échoué\n");
 									thread_status = 0;
 									//todo envoyer un abort au client expéditeur
 								}
@@ -187,7 +187,7 @@ int main(int argc, char *argv[])
 
 			if (fgets(buffer, sizeof(buffer), stdin) == NULL)
 			{
-				perror("fgets error");
+				perror("< FERROR > fgets error");
 				exit(errno);
 			}
 

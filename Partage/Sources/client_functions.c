@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -20,7 +21,7 @@ int verifyDirectory(char *path)
 	f = fopen(path, "r");
 	if (f == NULL)
 	{
-		fprintf(stderr, "Le chemin n'est pas valide ou le fichier est inexistant\n");
+		fprintf(stderr, "< FTS > Le chemin n'est pas valide ou le fichier est inexistant\n");
 		return FALSE;
 	}
 	else
@@ -35,43 +36,66 @@ int answerSendingRequest(char *request, char *path)
 	/* Cette fonction prend en paramètre une requête brute, un buffer pour intérroger le client et le path final de réception */
 	/* Elle s'occupe de demander au client destinataire s'il souhaite recevoir le fichier */
 
-	char buffer[2];
+	const char* home_directory = getenv("HOME");
+	char buffer[4];
 	char *file_name = NULL;
 	char *char_ptr = NULL;
 	FILE *f = NULL;
 	int reset = 0;
-
-	strcpy(path, "/home/clement/Reception/");
+	int answer = -1;
+	
+	strcpy(path, home_directory);
+	strcat(path, "/File_Transfer/");
+	if (mkdir(path, S_IRUSR | S_IWUSR | S_IXUSR) == -1)
+	{
+		if (errno != EEXIST)			// errno vaut EEXIST si et seulement si le dossier existe déjà
+		{
+			perror("mkdir error");
+			return 0;
+		}
+	} 
 	file_name = strrchr(request, '/')+1;
 	strcat(path, file_name);
 
 	f = fopen(path, "r");
 	if (f == NULL)
 	{
-		printf("Voulez-vous recevoir le fichier %s ?\n1 : Oui, 0 : Non\n", file_name);
-		if (fgets(buffer, sizeof(buffer), stdin) == NULL)
+		printf("< FTS > Voulez-vous recevoir le fichier %s ?\n        1 : Oui, 0 : Non\n", file_name);
+		while (answer != 0 && answer != 1)
 		{
-			perror("fgets error");
-			exit(errno);
-		}
-
-		char_ptr = strchr(buffer, '\n');
-		if (char_ptr != NULL)
-		{
-			*char_ptr = '\0';
-		}
-		else
-		{
-			while (reset != '\n' && reset != EOF)
+			if (fgets(buffer, sizeof(buffer), stdin) == NULL)
 			{
-				reset = getchar();
+				perror("fgets error");
+				return 0;
+			}
+
+			char_ptr = strchr(buffer, '\n');
+			if (char_ptr != NULL)
+			{
+				*char_ptr = '\0';
+			}
+			else
+			{
+				while (reset != '\n' && reset != EOF)
+				{
+					reset = getchar();
+				}
+			}
+			reset = 0;			// Si on repasse dans la boucle, reset doit être différent de EOF ou '\n' pour pouvoir flush le flux stdin
+
+			answer = atoi(buffer);
+			
+			if (answer != 0 && answer != 1)
+			{
+				printf("< FTS > Vous n'avez pas saisi un nombre valide !\n");
 			}
 		}
-		return atoi(buffer);
+
+		return answer;
 	}
 	else
 	{
-		printf("Quelqu'un souhaite vous envoyer le fichier %s mais il existe déjà (%s)\n", file_name, path);
+		printf("< FTS > Quelqu'un souhaite vous envoyer le fichier %s mais il existe déjà\n        (%s)\n", file_name, path);
 		fclose(f);
 		return 0;
 	}
@@ -103,13 +127,13 @@ int verifySendingRequest(char *buffer, char *dest_username, char *path)
 	}
 	else
 	{
-		fprintf(stderr, "Rappel de syntaxe : \"/sendto <dest_username> <path>\"\n");
+		fprintf(stderr, "< FTS > Rappel de syntaxe : \"/sendto <dest_username> <path>\"\n");
 		return FALSE;
 	}
 
 	if (path[0] == '\0')
 	{
-		fprintf(stderr, "Rappel de syntaxe : \"/sendto <dest_username> <path>\"\n");
+		fprintf(stderr, "< FTS > Rappel de syntaxe : \"/sendto <dest_username> <path>\"\n");
 		return FALSE;
 	}
 
@@ -143,7 +167,7 @@ void *transferSendControl(void *src_data)
 		fclose(f);
 		*(data->thread_status) = -1;
 		pthread_mutex_unlock(data->mutex_thread_status);
-		fprintf(stderr, "Envoi impossible : le chemin n'est pas valide ou le fichier est inexistant\n");
+		fprintf(stderr, "< FTS > Envoi impossible : le chemin n'est pas valide ou le fichier est inexistant\n");
 		pthread_exit(NULL);
 	}
 
@@ -178,7 +202,7 @@ void *transferSendControl(void *src_data)
 	fclose(f);
 	*(data->thread_status) = -1;
 	pthread_mutex_unlock(data->mutex_thread_status);
-	printf("L'envoi s'est parfaitement déroulé !\n");
+	printf("< FTS > L'envoi s'est parfaitement déroulé !\n\n");
 	pthread_exit(NULL);
 }
 
@@ -201,7 +225,7 @@ void *transferRecvControl(void *src_data)
 	}
 
 	FILE *f = NULL;
-	printf("%s\n", data->path);
+	printf("< FTS > Réception du fichier dans %s\n", data->path);
 	f = fopen(data->path, "wb");
 	if (f == NULL)
 	{
@@ -211,7 +235,7 @@ void *transferRecvControl(void *src_data)
 		fclose(f);
 		*(data->thread_status) = -1;
 		pthread_mutex_unlock(data->mutex_thread_status);
-		fprintf(stderr, "Réception impossible : le chemin n'est pas valide\n");
+		fprintf(stderr, "< FTS > Réception impossible : le chemin n'est pas valide\n");
 		pthread_exit(NULL);
 	}
 
@@ -245,7 +269,7 @@ void *transferRecvControl(void *src_data)
 	fclose(f);
 	*(data->thread_status) = -1;
 	pthread_mutex_unlock(data->mutex_thread_status);
-	printf("La réception s'est parfaitement déroulée !\n");
+	printf("< FTS > La réception s'est parfaitement déroulée !\n\n");
 	pthread_exit(NULL);
 }
 
@@ -260,7 +284,7 @@ void connectSocket(char* address, int port, int *msg_server_sock, int *file_serv
 
 	if(*msg_server_sock == SOCKET_ERROR)
 	{
-		perror("socket error");
+		perror("< FERROR > socket error");
 		exit(errno);
 	}
 
@@ -268,7 +292,7 @@ void connectSocket(char* address, int port, int *msg_server_sock, int *file_serv
 
 	if (hostinfo == NULL) /* gethostbyname n'a pas trouvé le serveur */
 	{
-		herror("gethostbyname error");
+		herror("< FERROR > gethostbyname error");
         exit(errno);
 	}
 
@@ -278,7 +302,7 @@ void connectSocket(char* address, int port, int *msg_server_sock, int *file_serv
 
 	if (connect(*msg_server_sock, (struct sockaddr*) &sin, sizeof(struct sockaddr)) == SOCKET_ERROR) /* demande de connexion */
 	{
-		perror("connect error");
+		perror("< FERROR > connect error");
 		exit(errno);
 	}
 
@@ -286,7 +310,7 @@ void connectSocket(char* address, int port, int *msg_server_sock, int *file_serv
 
 	if(*file_server_sock == SOCKET_ERROR)
 	{
-		perror("socket error");
+		perror("< FERROR > socket error");
 		exit(errno);
 	}
 
@@ -294,7 +318,7 @@ void connectSocket(char* address, int port, int *msg_server_sock, int *file_serv
 
 	if (hostinfo == NULL) /* gethostbyname n'a pas trouvé le serveur */
 	{
-		herror("gethostbyname");
+		herror("< FERROR > gethostbyname");
         exit(errno);
 	}
 
@@ -304,11 +328,11 @@ void connectSocket(char* address, int port, int *msg_server_sock, int *file_serv
 
 	if (connect(*file_server_sock, (struct sockaddr*) &sin, sizeof(struct sockaddr)) == SOCKET_ERROR) /* demande de connexion */
 	{
-		perror("connect error");
+		perror("< FERROR > connect error");
 		exit(errno);
 	}
 
-	printf("Connexion à %u.%u.%u.%u\n", hostinfo->h_addr[0], hostinfo->h_addr[1], hostinfo->h_addr[2], hostinfo->h_addr[3]);
+	printf("Connexion à %d.%d.%d.%d\n", (hostinfo->h_addr[0]+256)%256, (hostinfo->h_addr[1]+256)%256, (hostinfo->h_addr[2]+256)%256, (hostinfo->h_addr[3]+256)%256);
 }
 
 int recvServer(int sock, char *buffer, size_t buffer_size)
@@ -317,7 +341,7 @@ int recvServer(int sock, char *buffer, size_t buffer_size)
 	recv_outcome = recv(sock, buffer, buffer_size, 0);
 	if (recv_outcome == SOCKET_ERROR)
 	{
-		perror("recv error");
+		perror("< FERROR > recv error");
 		exit(errno);
 	}
 	else if (recv_outcome == 0)
@@ -332,7 +356,7 @@ int sendServer(int sock, char *buffer, size_t buffer_size)	// On pourra utiliser
 {
 	if (send(sock, buffer, buffer_size, 0) == SOCKET_ERROR)
 	{
-		perror("send error");
+		perror("< FERROR > send error");
 		exit(errno);
 	}
 

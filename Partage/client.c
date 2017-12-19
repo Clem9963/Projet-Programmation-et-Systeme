@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 
 	if (argc != 4)
 	{
-		fprintf(stderr, "Nombre d'arguments fournis incorrect\n");
+		fprintf(stderr, "< FERROR > Nombre d'arguments fournis incorrect\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 
 		if((selector = select(max_fd + 1, &readfs, NULL, NULL, NULL)) < 0)
 		{
-			perror("select error");
+			perror("< FERROR > select error");
 			exit(errno);
 		}
 
@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 
 			if (!recvServer(msg_server_sock, buffer, sizeof(buffer)))
 			{
-				printf("Le serveur n'est plus joignable\n");
+				printf("< FERROR > Le serveur n'est plus joignable\n");
 				close(msg_server_sock);
 				close(file_server_sock);
 				exit(EXIT_SUCCESS);
@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
 			{
 				if (pthread_mutex_lock(&mutex_thread_status) == EDEADLK)
 				{
-					printf("Un transfert est déjà en cours, patientez...\n");
+					printf("< FTS > Un transfert est déjà en cours, patientez...\n");
 					sprintf(buffer, "%d", 0);
 					sendServer(file_server_sock, buffer, strlen(buffer)+1);
 				}
@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
 				{
 					if (thread_status == 1)
 					{
-						printf("Un transfert est déjà en cours, patientez...\n");
+						printf("< FTS > Un transfert est déjà en cours, patientez...\n");
 						sprintf(buffer, "%d", 0);
 						sendServer(file_server_sock, buffer, strlen(buffer)+1);
 					}
@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
 						sendServer(file_server_sock, buffer, strlen(buffer)+1);
 						if (answer)
 						{
-							printf("Vous avez accepté le transfert\n");
+							printf("< FTS > Vous avez accepté le transfert\n");
 							data.path = path;
 							data.file_server_sock = file_server_sock;
 							data.msg_server_sock = msg_server_sock;
@@ -135,13 +135,13 @@ int main(int argc, char *argv[])
 							thread_status = 1;
 							if (pthread_create(&file_transfer, NULL, transferRecvControl, &data) != 0)
 							{
-								fprintf(stderr, "Le démarrage de la réception a échoué\n");
+								fprintf(stderr, "< FTS > Le démarrage de la réception a échoué\n");
 								thread_status = 0;
 							}
 						}
 						else
 						{
-							printf("Le fichier ne sera pas reçu\n");
+							printf("< FTS > Le fichier ne sera pas reçu\n\n");
 						}
 					}
 					pthread_mutex_unlock(&mutex_thread_status);
@@ -149,7 +149,7 @@ int main(int argc, char *argv[])
 			}
 			else if (!strncmp(buffer, "/abort", 6))
 			{
-				fprintf(stderr, "Une erreur a eu lieu pendant le transfert\n");
+				fprintf(stderr, "< FERROR > Une erreur a eu lieu pendant le transfert\n");
 				exit(EXIT_FAILURE);
 			}
 			else
@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
 
 			if (fgets(buffer, sizeof(buffer), stdin) == NULL)
 			{
-				perror("fgets error");
+				perror("< FERROR > fgets error");
 				exit(errno);
 			}
 
@@ -188,13 +188,13 @@ int main(int argc, char *argv[])
 			}
 			else if (pthread_mutex_lock(&mutex_thread_status) == EDEADLK)
 			{
-				printf("Un transfert est déjà en cours, patientez...\n");
+				printf("< FTS > Un transfert est déjà en cours, patientez...\n");
 			}		
 			else
 			{
 				if (thread_status == 1)
 				{
-					printf("Un transfert est déjà en cours, patientez...\n");
+					printf("< FTS > Un transfert est déjà en cours, patientez...\n");
 				}
 				else if (thread_status == -1)
 				{
@@ -210,15 +210,15 @@ int main(int argc, char *argv[])
 						answer = atoi(buffer);
 						if (answer == -1)
 						{
-							fprintf(stderr, "L'username n'est pas connu par le serveur\n");
+							fprintf(stderr, "< FTS > L'username n'est pas connu par le serveur\n");
 						}
 						else if (answer == -2)
 						{
-							printf("Un transfert est déjà en cours, patientez...\n");
+							printf("< FTS > Un transfert est déjà en cours, patientez...\n");
 						}
 						else if (answer == 0)
 						{
-							printf("Le destinataire ne souhaite pas recevoir le fichier\nIl a peut-être peur de vous...\n");
+							printf("< FTS > Le destinataire ne souhaite pas recevoir le fichier\n        Il a peut-être peur de vous...\n\n");
 						}
 						else
 						{
@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
 							thread_status = 1;
 							if (pthread_create(&file_transfer, NULL, transferSendControl, &data) != 0)
 							{
-								fprintf(stderr, "Le démarrage de l'envoi a échoué\n");
+								fprintf(stderr, "< FTS > Le démarrage de l'envoi a échoué\n");
 								thread_status = 0;
 							}
 						}
