@@ -181,64 +181,71 @@ int main(int argc, char *argv[])
 				}
 			}
 
-			if (strncmp(buffer, "/sendto", 7))
+			if (!strncmp(buffer, "/sendto", 7))
 			{
-				/* Le buffer ne commence pas par /sendto -> message normal */
-				sendServer(msg_server_sock, buffer, strlen(buffer)+1);
-			}
-			else if (pthread_mutex_lock(&mutex_thread_status) == EDEADLK)
-			{
-				printf("< FTS > Un transfert est déjà en cours, patientez...\n");
-			}		
-			else
-			{
-				if (thread_status == 1)
+				if (pthread_mutex_lock(&mutex_thread_status) == EDEADLK)
 				{
 					printf("< FTS > Un transfert est déjà en cours, patientez...\n");
-				}
-				else if (thread_status == -1)
+				}		
+				else
 				{
-					pthread_join(file_transfer, NULL);
-					thread_status = 0;
-				}
-				if (thread_status == 0)				// Pas de else car thread_status pourrait être modifié par le if précédent
-				{
-					if (verifySendingRequest(buffer, dest_username, path) && verifyDirectory(path))
+					if (thread_status == 1)
 					{
-						sendServer(msg_server_sock, buffer, strlen(buffer)+1);		// Envoi de la requête brute
-						recvServer(file_server_sock, buffer, sizeof(buffer));
-						answer = atoi(buffer);
-						if (answer == -1)
+						printf("< FTS > Un transfert est déjà en cours, patientez...\n");
+					}
+					else if (thread_status == -1)
+					{
+						pthread_join(file_transfer, NULL);
+						thread_status = 0;
+					}
+					if (thread_status == 0)				// Pas de else car thread_status pourrait être modifié par le if précédent
+					{
+						if (verifySendingRequest(buffer, dest_username, path) && verifyDirectory(path))
 						{
-							fprintf(stderr, "< FTS > L'username n'est pas connu par le serveur\n");
-						}
-						else if (answer == -2)
-						{
-							printf("< FTS > Un transfert est déjà en cours, patientez...\n");
-						}
-						else if (answer == 0)
-						{
-							printf("< FTS > Le destinataire ne souhaite pas recevoir le fichier\n        Il a peut-être peur de vous...\n\n");
-						}
-						else
-						{
-							data.path = path;
-							data.file_server_sock = file_server_sock;
-							data.msg_server_sock = msg_server_sock;
-							data.thread_status = &thread_status;
-							data.mutex_thread_status = &mutex_thread_status;
-
-							thread_status = 1;
-							if (pthread_create(&file_transfer, NULL, transferSendControl, &data) != 0)
+							sendServer(msg_server_sock, buffer, strlen(buffer)+1);		// Envoi de la requête brute
+							recvServer(file_server_sock, buffer, sizeof(buffer));
+							answer = atoi(buffer);
+							if (answer == -1)
 							{
-								fprintf(stderr, "< FTS > Le démarrage de l'envoi a échoué\n");
-								thread_status = 0;
+								fprintf(stderr, "< FTS > L'username n'est pas connu par le serveur\n");
+							}
+							else if (answer == -2)
+							{
+								printf("< FTS > Un transfert est déjà en cours, patientez...\n");
+							}
+							else if (answer == 0)
+							{
+								printf("< FTS > Le destinataire ne souhaite pas recevoir le fichier\n        Il a peut-être peur de vous...\n\n");
+							}
+							else
+							{
+								data.path = path;
+								data.file_server_sock = file_server_sock;
+								data.msg_server_sock = msg_server_sock;
+								data.thread_status = &thread_status;
+								data.mutex_thread_status = &mutex_thread_status;
+
+								thread_status = 1;
+								if (pthread_create(&file_transfer, NULL, transferSendControl, &data) != 0)
+								{
+									fprintf(stderr, "< FTS > Le démarrage de l'envoi a échoué\n");
+									thread_status = 0;
+								}
 							}
 						}
 					}
+					pthread_mutex_unlock(&mutex_thread_status);
 				}
-				pthread_mutex_unlock(&mutex_thread_status);
 			}
+			else if (!strcmp(buffer, "/abort"))
+			{
+				printf("Cette commande n'est pas autorisée\n");
+			}
+			else
+			{
+				/* On a affaire à un message standard */
+				sendServer(msg_server_sock, buffer, strlen(buffer)+1);
+			} 
 		}
 	}
 

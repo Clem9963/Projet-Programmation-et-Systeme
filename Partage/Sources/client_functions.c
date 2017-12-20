@@ -119,7 +119,7 @@ int verifySendingRequest(char *buffer, char *dest_username, char *path)
 		}
 
 		i = 0;
-		for (char_ptr += 1; char_ptr < buffer + strlen(buffer) && *char_ptr != ' '; char_ptr++)
+		for (char_ptr += 1; char_ptr < buffer + strlen(buffer); char_ptr++)
 		{
 			path[i] = *char_ptr;
 			i++;

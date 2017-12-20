@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 
 	char buffer[BUFFER_SIZE] = "";									// Buffer de 1024 octets pour l'envoi et le réception
 	char formatting_buffer[FORMATTING_BUFFER_SIZE] = "";			// Buffer de 1048 octets pour le formatage du message avant la copie dans buffer
-	char request[BUFFER_SIZE] = "";									// Buffer de 1024 octets pour l'envoi et le réception
+	char request[BUFFER_SIZE] = "";									// Buffer de 1024 octets pour stocker la requête /sendto
 	struct Client clients[MAX_CLIENTS];
 	int clients_nb = 0;
 	int index = 0;
@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 
 	int thread_status = 0;	// 0 Si le thread n'est pas en cours, 1 s'il est en cours et -1 s'il attend que l'on lise son code de retour
 	pthread_t file_transfer = 0;
-	pthread_mutex_t mutex_thread_status = PTHREAD_MUTEX_INITIALIZER;
+	pthread_mutex_t mutex_thread_status = PTHREAD_MUTEX_INITIALIZER;	 // Initialisation du mutex (type "rapide")
 	struct TransferDetails data;
 
 	int reset = 0;
@@ -165,6 +165,20 @@ int main(int argc, char *argv[])
 						pthread_mutex_unlock(&mutex_thread_status);
 					}
 				}
+				else if (!strcmp(buffer, "/abort"))		// "Si l'on reçoit une commande du type /abort"	
+				{
+					/* On n'a pas besoin de faire de test car le /abort ne peut être envoyé par l'utilisateur */
+					/* En effet, seulement le thread relatif au transfert, s'il rencontre un problème peut être amené à générer une telle requête */
+
+					if (!strcmp(clients[i].username, data.receiving_client.username))
+					{
+						sendClient(data.sending_client.msg_client_sock, buffer, strlen(buffer)+1);
+					}
+					else
+					{
+						sendClient(data.receiving_client.msg_client_sock, buffer, strlen(buffer)+1);
+					}
+				}
 				else	// Ce qui se trouvait dans le buffer du client est tout de même envoyé pour le chat, d'où le "else"
 				{
 					strcpy(formatting_buffer, clients[i].username);
@@ -203,14 +217,32 @@ int main(int argc, char *argv[])
 					reset = getchar();
 				}
 			}
-			// strcpy(formatting_buffer, "SERVEUR : ");
-			// strcat(formatting_buffer, buffer);
-			// formatting_buffer[BUFFER_SIZE-1] = '\0';
-			// strcpy(buffer, formatting_buffer);
-			printf("%s\n", buffer);
-			for (i = 0; i < clients_nb; i++)
-			{	
-				sendClient(clients[i].msg_client_sock, buffer, strlen(buffer)+1);
+
+			if (!strcmp(buffer, "/abort"))		// "Si l'utilisateur entre une commande du type /abort"	
+			{
+				if (pthread_mutex_lock(&mutex_thread_status) != EDEADLK)
+				{
+					fprintf(stderr, "< FTS > Aucun transfert n'est en cours, commande annulée\n\n");
+					pthread_mutex_unlock(&mutex_thread_status);
+				}
+				else
+				{
+					sendClient(data.sending_client.msg_client_sock, buffer, strlen(buffer)+1);
+					sendClient(data.receiving_client.msg_client_sock, buffer, strlen(buffer)+1);
+					printf("< FTS > Transfert annulé avec succès !\n");
+				}
+			}
+			else
+			{
+				strcpy(formatting_buffer, "SERVEUR : ");
+				strcat(formatting_buffer, buffer);
+				formatting_buffer[BUFFER_SIZE-1] = '\0';
+				strcpy(buffer, formatting_buffer);
+				printf("%s\n", buffer);
+				for (i = 0; i < clients_nb; i++)
+				{	
+					sendClient(clients[i].msg_client_sock, buffer, strlen(buffer)+1);
+				}
 			}
 		}
 	}
