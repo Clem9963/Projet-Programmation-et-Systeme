@@ -85,10 +85,7 @@ void *transferControl(void *src_data)
 	int residue_size = 0;
 	int i = 0;
 
-	while(pthread_mutex_lock(data->mutex_thread_status) == EDEADLK)
-	{
-		continue;
-	}
+	pthread_mutex_lock(data->mutex_thread_status);	// Cette fonction est bloquante jusqu'à ce que le mutex puisse être vérouillé
 
 	sendClient(data->receiving_client.msg_client_sock, data->request, strlen(data->request)+1);
 	recvClient(data->receiving_client.file_client_sock, buffer, sizeof(buffer));

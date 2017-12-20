@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
 			exit(errno);
 		}
 
-		if (pthread_mutex_lock(&mutex_thread_status) != EDEADLK)
+		if (pthread_mutex_trylock(&mutex_thread_status) != EBUSY)
 		{
 			if (thread_status == -1)
 			{
@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 			}
 			else if (!strncmp(buffer, "/sendto", 7))		// ATTENTION ! strncmp renvoie 0 si les deux chaînes sont égales !
 			{
-				if (pthread_mutex_lock(&mutex_thread_status) == EDEADLK)
+				if (pthread_mutex_trylock(&mutex_thread_status) == EBUSY)
 				{
 					printf("< FTS > Un transfert est déjà en cours, patientez...\n");
 					sprintf(buffer, "%d", 0);
@@ -183,7 +183,7 @@ int main(int argc, char *argv[])
 
 			if (!strncmp(buffer, "/sendto", 7))
 			{
-				if (pthread_mutex_lock(&mutex_thread_status) == EDEADLK)
+				if (pthread_mutex_trylock(&mutex_thread_status) == EBUSY)
 				{
 					printf("< FTS > Un transfert est déjà en cours, patientez...\n");
 				}		

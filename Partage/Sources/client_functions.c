@@ -151,10 +151,7 @@ void *transferSendControl(void *src_data)
 	int package_number = 0;
 	int i = 0;
 
-	while(pthread_mutex_lock(data->mutex_thread_status) == EDEADLK)
-	{
-		continue;
-	}
+	pthread_mutex_lock(data->mutex_thread_status);		// Cette fonction est bloquante jusqu'à ce que le mutex puisse être vérouillé
 
 	FILE *f = NULL;
 
