@@ -1,6 +1,6 @@
 #include "client.h"
 
-int main(int argc, char *argv[]){
+int main(){
 
 	//initialisation des variables
 	char buffer[TAILLE_BUF];
@@ -54,12 +54,13 @@ int main(int argc, char *argv[]){
 		}
 		else if(FD_ISSET(STDIN_FILENO, &readfds))
 		{
-			//récupère la lettre entrée
+			//récupère la lettre entrée 
 			lettre = getch();
+
 			
 			//si ce n'est pas la touch entrée et que l'on n'a pas remplit la ligne
 			//10 = touche entrée
-			if(lettre != 10 && longueurMessageEntre < COLS - 14)
+			if(lettre != 10 && lettre != 263 && longueurMessageEntre < COLS - 14)
 			{
 				//on met la lettre dans le bufferMessagEntre
 				bufferMessageEntre[longueurMessageEntre] = lettre;
@@ -67,12 +68,21 @@ int main(int argc, char *argv[]){
 				move(LINES - 2, 11 + longueurMessageEntre); //met le curseur au bon endroit
 				wrefresh(fenBas); //rafraichit
 			}
-			else
+			//si on appuie sur la touche retour pour effacer un caractère
+			else if (lettre == 263 && longueurMessageEntre > 0)
 			{
-				//si on est au bout de la ligne d'écriture on stop la saisie
-				if(longueurMessageEntre >= COLS - 13-1)
-					getnstr(" ", 0);
-				
+				longueurMessageEntre--;
+				bufferMessageEntre[longueurMessageEntre] = ' ';
+				mvwprintw(fenBas, 1, 11 + longueurMessageEntre, " ");
+				//wclrtoeol(fenBas); //on supprime le message saisie
+				rafraichit(fenHaut, fenBas);
+				//mvwprintw(fenBas, 1, 11, bufferMessageEntre);
+				move(LINES - 2, 11 + longueurMessageEntre); //met le curseur au bon endroit
+				rafraichit(fenHaut, fenBas); //rafraichit
+			}
+			//sinon on envoie le message
+			else if(lettre == 10)
+			{
 				//on met le buffer
 				bufferMessageEntre[longueurMessageEntre] = '\0';
 				longueurMessageEntre = 0;
@@ -99,7 +109,8 @@ int main(int argc, char *argv[]){
 	        	}
 	        	strcpy(bufferMessageEntre, " "); // on efface le buffer
 	        	move(LINES - 2, 11); //on se remet au debut de la ligne du message
-				wclrtoeol(fenBas); //on supprime le message saisie
+				//wclrtoeol(fenBas); //on supprime le message saisie
+				werase(fenBas);
 				rafraichit(fenHaut, fenBas);
 	        }
         }
@@ -172,7 +183,7 @@ void read_serveur(int sock, char *buffer, char conversation[LINES - 6][TAILLE_BU
 	else
 	{
 		//verifie le message et met "..." a la fin si le message est trop lonng
-		if(strlen(buffer) > COLS - 2 )
+		if((int)strlen(buffer) > COLS - 2 )
 		{
 			buffer[COLS - 5] = '.';
 			buffer[COLS - 4] = '.';
@@ -224,7 +235,7 @@ void demandePseudo(char *pseudo){
 
 //ecrit un message dans la conversation
 void ecritDansConv(char *buffer, char conversation[LINES - 6][TAILLE_BUF], int *ligne, WINDOW *fenHaut, WINDOW *fenBas){
-	int i, j;
+	int i;
 
 	//on ecrit le nouveau message dans le chat
     if(*ligne < LINES - 6)
@@ -261,6 +272,7 @@ void ecritDansConv(char *buffer, char conversation[LINES - 6][TAILLE_BUF], int *
 void rafraichit(WINDOW *fenHaut, WINDOW *fenBas){
     box(fenBas, ACS_VLINE, ACS_HLINE);//recrée les cadres
     box(fenHaut, ACS_VLINE, ACS_HLINE);
+    mvwprintw(fenBas, 1, 1, "Message : ");
     wrefresh(fenHaut);
     wrefresh(fenBas);
 }

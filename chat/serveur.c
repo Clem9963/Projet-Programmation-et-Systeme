@@ -6,8 +6,7 @@ int main(){
 	int i, succes = 0;
 	int nbClients = 0;
 	int sockServeur = socket(AF_INET, SOCK_STREAM, 0); //Création d'un socket TCP
-	int listeSock[NB_CLIENT_MAX];
-	char listePseudo[NB_CLIENT_MAX][TAILLE_PSEUDO];	
+	struct Client clients[NB_CLIENT_MAX];
 	char buffer[TAILLE_BUF];
 	char *pseudo;
 	struct sockaddr_in csin; 
@@ -27,7 +26,7 @@ int main(){
 		FD_SET(STDIN_FILENO, &readfds);
 
 		for(i = 0; i < nbClients; i++)
-			FD_SET(listeSock[i], &readfds);	
+			FD_SET(clients[i].csock, &readfds);	
 		
 		if(select(sockServeur + nbClients + 1, &readfds, NULL, NULL, NULL) == -1)
 		{
@@ -39,14 +38,14 @@ int main(){
 		//ecoute une connexion de client
 		if(FD_ISSET(sockServeur, &readfds))
 		{
-			listeSock[nbClients] = accept(sockServeur, (struct sockaddr *)&csin, &taille);
-			ecouteConnexion(listeSock[nbClients], buffer, nbClients, listePseudo);
+			clients[nbClients].csock = accept(sockServeur, (struct sockaddr *)&csin, &taille);
+			ecouteConnexion(clients[nbClients].csock, buffer,clients[nbClients].pseudo);
 			
 			//message de connexion pour les autres clients
-			sprintf(buffer, "%s est connecté", listePseudo[nbClients]);
+			sprintf(buffer, "%s est connecté", clients[nbClients].pseudo);
 
 			//envoi un message aux autres pour dire la connexion d'un client
-			envoiMessageAutresClients(listeSock, nbClients, buffer, &nbClients);
+			envoiMessageAutresClients(clients, nbClients, buffer, &nbClients);
 		
 			nbClients++;
 		}
@@ -75,9 +74,9 @@ int main(){
 					//on cherche le client en comparant avec la liste des pseudos
 					for(i = 0; i < nbClients; i++)
 					{
-						if(strcmp(listePseudo[i], pseudo) == 0)
+						if(strcmp(clients[i].pseudo, pseudo) == 0)
 						{
-							deconnexionClient(listeSock, i, &nbClients, listePseudo);
+							deconnexionClient(clients, i, &nbClients);
 							printf("%s déconnecté avec succès \n", pseudo);
 							succes = 1;
 						}
@@ -95,13 +94,13 @@ int main(){
 			{
 				printf("\nVoici les clients connectés : \n");
 				for (i = 0; i < nbClients; i++)
-					printf("%s\n", listePseudo[i]);
+					printf("%s\n", clients[i].pseudo);
 			}
 			//sinon on envoie aux clients
 			else
 			{
 				concatener(buffer, "Serveur");
-				envoiMessageTous(listeSock, buffer, &nbClients);
+				envoiMessageTous(clients, buffer, &nbClients);
 			}
 		}
 		//ecoute les sockets clients
@@ -109,9 +108,9 @@ int main(){
 		{
 			for (i = 0; i < nbClients; i++)
 			{
-				if(FD_ISSET(listeSock[i], &readfds))
+				if(FD_ISSET(clients[i].csock, &readfds))
 				{
-					ecouteMessage(listeSock, i, buffer, &nbClients, listePseudo);
+					ecouteMessage(clients, i, buffer, &nbClients);
 				}
 			}
 		}
@@ -146,7 +145,7 @@ void ouvertureServeur(int sock){
 }
 
 //ecoute la connexion d'un client
-void ecouteConnexion(int csock, char *buffer, int indice, char listePseudo[NB_CLIENT_MAX][TAILLE_PSEUDO]){
+void ecouteConnexion(int csock, char *buffer, char *pseudo){
 	ssize_t taille_recue;
 	char bienvenue[strlen(buffer) + 10]; //+10 car faut rajouter le "Bienvenue "
 
@@ -167,7 +166,7 @@ void ecouteConnexion(int csock, char *buffer, int indice, char listePseudo[NB_CL
 		envoiMessage(csock, bienvenue);//message de bienvenue
 
 		//isncrire dans la liste des pseudos
-		strcpy(listePseudo[indice], buffer);
+		strcpy(pseudo, buffer);
 	}
 }
 
@@ -179,26 +178,26 @@ void envoiMessage(int csock, char *buffer){
 	}
 }
 
-void envoiMessageTous(int *listeSock, char *buffer, int *nbClients){
+void envoiMessageTous(struct Client *clients, char *buffer, int *nbClients){
 	int i;
 	for (i = 0; i < *nbClients; i++)
-		envoiMessage(listeSock[i], buffer); 
+		envoiMessage(clients[i].csock, buffer); 
 }
 
-void envoiMessageAutresClients(int *listeSock, int indice, char *buffer, int *nbClients){
+void envoiMessageAutresClients(struct Client *clients, int indice, char *buffer, int *nbClients){
 	int i;
 	for (i = 0; i < *nbClients; i++)
 	{
 		if(i != indice)
-			envoiMessage(listeSock[i], buffer);//retransmet le message aux autres
+			envoiMessage(clients[i].csock, buffer);//retransmet le message aux autres
 	}
 }
 
-void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, char listePseudo[NB_CLIENT_MAX][TAILLE_PSEUDO]){
+void ecouteMessage(struct Client *clients, int indice, char *buffer, int *nbClients){
 	ssize_t taille_recue;
 	int i;
 
-	taille_recue = recv(listeSock[indice], buffer, TAILLE_BUF, 0); //recoi le message
+	taille_recue = recv(clients[indice].csock, buffer, TAILLE_BUF, 0); //recoi le message
 	
 	//gère une erreur
 	if(taille_recue == -1)
@@ -209,10 +208,10 @@ void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, cha
 	//pour gerer la deconnexion du client
 	else if(taille_recue == 0)
 	{
-		sprintf(buffer, "%s s'est déconnecté", listePseudo[indice]);
-		envoiMessageAutresClients(listeSock, indice, buffer, nbClients);
+		sprintf(buffer, "%s s'est déconnecté", clients[indice].pseudo);
+		envoiMessageAutresClients(clients, indice, buffer, nbClients);
 		printf("%s\n", buffer);
-		deconnexionClient(listeSock, indice, nbClients, listePseudo);
+		deconnexionClient(clients, indice, nbClients);
 	}
 	//envoi le message aux autres clients si pas d'erreurs
 	else
@@ -224,49 +223,49 @@ void ecouteMessage(int *listeSock, int indice, char *buffer, int *nbClients, cha
 		//connectés au client qui les a demandé
 		if(strcmp(buffer, "/list") == 0)
 		{
-			printf("%s : /list\n", listePseudo[indice]);
+			printf("%s : /list\n", clients[indice].pseudo);
 			strcpy(buffer, "Les clients connectés sont : ");
 			for (i = 0; i < *nbClients; i++)
 			{
 				if(i != indice)
-					strcat(buffer, listePseudo[i]);
+					strcat(buffer, clients[i].pseudo);
 				else
 					strcat(buffer, "vous");
 					
 				strcat(buffer, ", ");
 			}
-			envoiMessage(listeSock[indice], buffer);
+			envoiMessage(clients[indice].csock, buffer);
 		}
 		else
 		{
-			concatener(buffer, listePseudo[indice]);
+			concatener(buffer, clients[indice].pseudo);
 			printf("%s\n", buffer);
-			envoiMessageAutresClients(listeSock, indice, buffer, nbClients);
+			envoiMessageAutresClients(clients, indice, buffer, nbClients);
 		}
 	}
 }
 
 //deconnexion d'un client
-void deconnexionClient(int *listeSock, int indice, int *nbClients, char listePseudo[NB_CLIENT_MAX][TAILLE_PSEUDO]){
+void deconnexionClient(struct Client *clients, int indice, int *nbClients){
 	int i;
 
-	if(close(listeSock[indice]) == -1)// ferme le socket
+	if(close(clients[indice].csock) == -1)// ferme le socket
 	{
 		perror("close()");
 		exit(-1);
 	}
-	listeSock[indice] = 0;
-	strcpy(listePseudo[indice], "");
+	clients[indice].csock = 0;
+	strcpy(clients[indice].pseudo, "");
 
 	(*nbClients)--;// diminue le nombre de clients
 
 	// refaire la listeSock et listepseudo bien comme il faut
 	for(i = indice; i < *nbClients; i++)
 	{
-		listeSock[i] = (int)listeSock[i + 1];
-		strcpy(listePseudo[i], listePseudo[i + 1]);
-		listeSock[i + 1] = 0;
-		strcpy(listePseudo[i + 1], "");
+		clients[i].csock = clients[i + 1].csock;
+		strcpy(clients[i].pseudo, clients[i + 1].pseudo);
+		clients[i + 1].csock = 0;
+		strcpy(clients[i + 1].pseudo, "");
 	}
 }
 
