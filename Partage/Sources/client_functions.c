@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <ncurses.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -13,7 +14,7 @@
 #include "client.h"
 #include "client_functions.h"
 
-int verifyDirectory(char *path)
+int verifyDirectory(char *path, char **conversation, int *line, WINDOW *top_win, WINDOW *bottom_win)
 {
 	/* Cette fonction vérifie si le chemin "path" est valide */
 	FILE *f = NULL;
@@ -21,7 +22,7 @@ int verifyDirectory(char *path)
 	f = fopen(path, "r");
 	if (f == NULL)
 	{
-		fprintf(stderr, "< FTS > Le chemin n'est pas valide ou le fichier est inexistant\n");
+		writeInConv("< FTS > Le chemin n'est pas valide ou le fichier est inexistant", conversation, line, top_win, bottom_win);
 		return FALSE;
 	}
 	else
@@ -31,17 +32,17 @@ int verifyDirectory(char *path)
 	}
 }
 
-int answerSendingRequest(char *request, char *path)
+int answerSendingRequest(char *request, char *path, char **conversation, int *line, WINDOW *top_win, WINDOW *bottom_win)
 {
 	/* Cette fonction prend en paramètre une requête brute, un buffer pour intérroger le client et le path final de réception */
 	/* Elle s'occupe de demander au client destinataire s'il souhaite recevoir le fichier */
 
 	const char* home_directory = getenv("HOME");
 	char buffer[4];
+	char msg_buffer[BUFFER_SIZE] = "";	// Buffer pour les messages d'erreurs
+
 	char *file_name = NULL;
-	char *char_ptr = NULL;
 	FILE *f = NULL;
-	int reset = 0;
 	int answer = -1;
 	
 	strcpy(path, home_directory);
@@ -50,6 +51,7 @@ int answerSendingRequest(char *request, char *path)
 	{
 		if (errno != EEXIST)			// errno vaut EEXIST si et seulement si le dossier existe déjà
 		{
+			endwin();
 			perror("mkdir error");
 			return 0;
 		}
@@ -60,34 +62,20 @@ int answerSendingRequest(char *request, char *path)
 	f = fopen(path, "r");
 	if (f == NULL)
 	{
-		printf("< FTS > Voulez-vous recevoir le fichier %s ?\n        1 : Oui, 0 : Non\n", file_name);
+		sprintf(msg_buffer, "< FTS > Voulez-vous recevoir le fichier %s ?", file_name);
+		writeInConv(msg_buffer, conversation, line, top_win, bottom_win);
+		writeInConv("1 : Oui, 0 : Non", conversation, line, top_win, bottom_win);
 		while (answer != 0 && answer != 1)
 		{
-			if (fgets(buffer, sizeof(buffer), stdin) == NULL)
-			{
-				perror("fgets error");
-				return 0;
-			}
-
-			char_ptr = strchr(buffer, '\n');
-			if (char_ptr != NULL)
-			{
-				*char_ptr = '\0';
-			}
-			else
-			{
-				while (reset != '\n' && reset != EOF)
-				{
-					reset = getchar();
-				}
-			}
-			reset = 0;			// Si on repasse dans la boucle, reset doit être différent de EOF ou '\n' pour pouvoir flush le flux stdin
+			werase(bottom_win);					// On efface le message entamé pour attendre la réponse d'acceptation de la réception
+			convRefresh(top_win, bottom_win);	// Rafraichissement de l'interface
+			getnstr(buffer, 1);					// Récupération de la saisie
 
 			answer = atoi(buffer);
 			
 			if (answer != 0 && answer != 1)
 			{
-				printf("< FTS > Vous n'avez pas saisi un nombre valide !\n");
+				writeInConv("< FTS > Vous n'avez pas saisi un nombre valide !", conversation, line, top_win, bottom_win);
 			}
 		}
 
@@ -95,13 +83,16 @@ int answerSendingRequest(char *request, char *path)
 	}
 	else
 	{
-		printf("< FTS > Quelqu'un souhaite vous envoyer le fichier %s mais il existe déjà\n        (%s)\n", file_name, path);
+		sprintf(msg_buffer, "< FTS > Quelqu'un souhaite vous envoyer le fichier %s mais il existe déjà", file_name);
+		writeInConv(msg_buffer, conversation, line, top_win, bottom_win);
+		sprintf(msg_buffer, "(%s)", path);
+		writeInConv(msg_buffer, conversation, line, top_win, bottom_win);
 		fclose(f);
 		return 0;
 	}
 }
 
-int verifySendingRequest(char *buffer, char *dest_username, char *path)
+int verifySendingRequest(char *buffer, char *dest_username, char *path, char **conversation, int *line, WINDOW *top_win, WINDOW *bottom_win)
 {
 	/* Fonction vérifiant l'intégrité et la validité d'une requête /sendto 	*/
 	/* Les tableaux dest_username et path sont remplis en fonction 			*/
@@ -127,13 +118,13 @@ int verifySendingRequest(char *buffer, char *dest_username, char *path)
 	}
 	else
 	{
-		fprintf(stderr, "< FTS > Rappel de syntaxe : \"/sendto <dest_username> <path>\"\n");
+		writeInConv("< FTS > Rappel de syntaxe : /sendto <dest_username> <path>", conversation, line, top_win, bottom_win);
 		return FALSE;
 	}
 
 	if (path[0] == '\0')
 	{
-		fprintf(stderr, "< FTS > Rappel de syntaxe : \"/sendto <dest_username> <path>\"\n");
+		writeInConv("< FTS > Rappel de syntaxe : /sendto <dest_username> <path>", conversation, line, top_win, bottom_win);
 		return FALSE;
 	}
 
@@ -164,7 +155,7 @@ void *transferSendControl(void *src_data)
 		fclose(f);
 		*(data->thread_status) = -1;
 		pthread_mutex_unlock(data->mutex_thread_status);
-		fprintf(stderr, "< FTS > Envoi impossible : le chemin n'est pas valide ou le fichier est inexistant\n");
+		writeInConv("< FTS > Envoi impossible : le chemin n'est pas valide ou le fichier est inexistant", data->conversation, data->line, data->top_win, data->bottom_win);
 		pthread_exit(NULL);
 	}
 
@@ -183,15 +174,15 @@ void *transferSendControl(void *src_data)
 	{
 		if (i == package_number / 4 && package_number >= 500000)
 		{
-			printf("< FTS > Le transfert en est à 25%%\n");
+			writeInConv("< FTS > Le transfert en est à 25%", data->conversation, data->line, data->top_win, data->bottom_win);
 		}
 		else if (i == package_number / 2 && package_number >= 500000)
 		{
-			printf("< FTS > Le transfert en est à 50%%\n");
+			writeInConv("< FTS > Le transfert en est à 50%", data->conversation, data->line, data->top_win, data->bottom_win);
 		}
 		else if (i == (package_number / 4)*3 && package_number >= 500000)
 		{
-			printf("< FTS > Le transfert en est à 75%%\n");
+			writeInConv("< FTS > Le transfert en est à 75%", data->conversation, data->line, data->top_win, data->bottom_win);
 		}
 		
 		fread(buffer, BUFFER_SIZE, 1, f);
@@ -212,7 +203,7 @@ void *transferSendControl(void *src_data)
 	fclose(f);
 	*(data->thread_status) = -1;
 	pthread_mutex_unlock(data->mutex_thread_status);
-	printf("< FTS > L'envoi s'est parfaitement déroulé !\n\n");
+	writeInConv("< FTS > L'envoi s'est parfaitement déroulé !", data->conversation, data->line, data->top_win, data->bottom_win);
 	pthread_exit(NULL);
 }
 
@@ -235,7 +226,8 @@ void *transferRecvControl(void *src_data)
 	}
 
 	FILE *f = NULL;
-	printf("< FTS > Réception du fichier dans %s\n", data->path);
+	sprintf(buffer, "< FTS > Réception du fichier dans %s\n", data->path);
+	writeInConv(buffer, data->conversation, data->line, data->top_win, data->bottom_win);
 	f = fopen(data->path, "wb");
 	if (f == NULL)
 	{
@@ -245,7 +237,7 @@ void *transferRecvControl(void *src_data)
 		fclose(f);
 		*(data->thread_status) = -1;
 		pthread_mutex_unlock(data->mutex_thread_status);
-		fprintf(stderr, "< FTS > Réception impossible : le chemin n'est pas valide\n");
+		writeInConv("< FTS > Réception impossible : le chemin n'est pas valide", data->conversation, data->line, data->top_win, data->bottom_win);
 		pthread_exit(NULL);
 	}
 
@@ -261,15 +253,15 @@ void *transferRecvControl(void *src_data)
 	{
 		if (i == package_number / 4 && package_number >= 500000)
 		{
-			printf("< FTS > Le transfert en est à 25%%\n");
+			writeInConv("< FTS > Le transfert en est à 25%", data->conversation, data->line, data->top_win, data->bottom_win);
 		}
 		else if (i == package_number / 2 && package_number >= 500000)
 		{
-			printf("< FTS > Le transfert en est à 50%%\n");
+			writeInConv("< FTS > Le transfert en est à 50%", data->conversation, data->line, data->top_win, data->bottom_win);
 		}
 		else if (i == (package_number / 4)*3 && package_number >= 500000)
 		{
-			printf("< FTS > Le transfert en est à 75%%\n");
+			writeInConv("< FTS > Le transfert en est à 75%", data->conversation, data->line, data->top_win, data->bottom_win);
 		}
 		
 		recvServer(data->file_server_sock, buffer, sizeof(buffer));
@@ -292,7 +284,7 @@ void *transferRecvControl(void *src_data)
 	fclose(f);
 	*(data->thread_status) = -1;
 	pthread_mutex_unlock(data->mutex_thread_status);
-	printf("< FTS > La réception s'est parfaitement déroulée !\n\n");
+	writeInConv("< FTS > La réception s'est parfaitement déroulée !", data->conversation, data->line, data->top_win, data->bottom_win);
 	pthread_exit(NULL);
 }
 
@@ -316,7 +308,7 @@ void connectSocket(char* address, int port, int *msg_server_sock, int *file_serv
 	if (hostinfo == NULL) /* gethostbyname n'a pas trouvé le serveur */
 	{
 		herror("< FERROR > gethostbyname error");
-        exit(errno);
+		exit(errno);
 	}
 
 	sin.sin_addr = *(struct in_addr*) hostinfo->h_addr; /* on spécifie l'adresse */
@@ -342,7 +334,7 @@ void connectSocket(char* address, int port, int *msg_server_sock, int *file_serv
 	if (hostinfo == NULL) /* gethostbyname n'a pas trouvé le serveur */
 	{
 		herror("< FERROR > gethostbyname");
-        exit(errno);
+		exit(errno);
 	}
 
 	sin.sin_addr = *(struct in_addr*) hostinfo->h_addr; /* on spécifie l'adresse */
@@ -358,12 +350,66 @@ void connectSocket(char* address, int port, int *msg_server_sock, int *file_serv
 	printf("Connexion à %d.%d.%d.%d\n", (hostinfo->h_addr[0]+256)%256, (hostinfo->h_addr[1]+256)%256, (hostinfo->h_addr[2]+256)%256, (hostinfo->h_addr[3]+256)%256);
 }
 
+
+void initInterface(WINDOW *top_win, WINDOW *bottom_win)
+{
+	box(top_win, ACS_VLINE, ACS_HLINE);
+	box(bottom_win, ACS_VLINE, ACS_HLINE);
+	mvwprintw(top_win, 1, 1,"Messages : ");
+	mvwprintw(bottom_win, 1, 1, "Message : ");
+}
+
+void writeInConv(char *buffer, char **conversation, int *line, WINDOW *top_win, WINDOW *bottom_win)
+{
+	int i = 0;
+
+	//on ecrit le nouveau message dans le chat
+	if(*line < LINES - 6)
+	{
+		strcpy(conversation[*line], buffer);
+		mvwprintw(top_win, *line + 2, 1, conversation[*line]);
+		(*line)++;
+	}
+	//sinon on scroll de un vers le bas
+	else
+	{
+		//effacer l'affichage de la conversation
+		werase(top_win);
+		mvwprintw(top_win, 1, 1,"Messages : "); //remet le texte "messages :"
+
+		//decalage vers le haut
+		for(i = 0; i < LINES - 7; i++)
+		{
+			strcpy(conversation[i], conversation[i + 1]);
+			mvwprintw(top_win, 2 + i , 1,conversation[i]);
+		}
+
+		//ecriture du nouveau message en bas
+		strcpy(conversation[LINES - 7], buffer);
+		mvwprintw(top_win, 2 + LINES - 7, 1, conversation[LINES - 7]);
+	}
+	
+	//raffraichit les fenetres
+	convRefresh(top_win, bottom_win);
+}
+
+void convRefresh(WINDOW *top_win, WINDOW *bottom_win)
+{
+	/* Rafraîchit l'interface */
+	box(bottom_win, ACS_VLINE, ACS_HLINE);	//recrée les cadres
+	box(top_win, ACS_VLINE, ACS_HLINE);
+	mvwprintw(bottom_win, 1, 1, "Message : ");
+	wrefresh(top_win);
+	wrefresh(bottom_win);
+}
+
 int recvServer(int sock, char *buffer, size_t buffer_size)
 {
 	ssize_t recv_outcome = 0;
 	recv_outcome = recv(sock, buffer, buffer_size, 0);
 	if (recv_outcome == SOCKET_ERROR)
 	{
+		endwin();
 		perror("< FERROR > recv error");
 		exit(errno);
 	}

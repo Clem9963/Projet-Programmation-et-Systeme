@@ -20,6 +20,7 @@ int main(int argc, char *argv[])
 	char buffer[BUFFER_SIZE] = "";									// Buffer de 1024 octets pour l'envoi et le réception
 	char formatting_buffer[FORMATTING_BUFFER_SIZE] = "";			// Buffer de 1048 octets pour le formatage du message avant la copie dans buffer
 	char request[BUFFER_SIZE] = "";									// Buffer de 1024 octets pour stocker la requête /sendto
+	char *username;
 	struct Client clients[MAX_CLIENTS];
 	int clients_nb = 0;
 	int index = 0;
@@ -41,6 +42,7 @@ int main(int argc, char *argv[])
 
 	int i = 0;
 	int j = 0;
+	int success = 0;
 
 	if (argc != 2)
 	{
@@ -165,6 +167,25 @@ int main(int argc, char *argv[])
 						pthread_mutex_unlock(&mutex_thread_status);
 					}
 				}
+				if(!strcmp(buffer, "/list"))
+				{
+					printf("%s : /list\n", clients[i].username);
+					strcpy(buffer, "Les clients connectés sont : ");
+					for (j = 0; j < clients_nb; j++)
+					{
+						if(j != i)
+						{
+							strcat(buffer, clients[j].username);
+						}
+						else
+						{
+							strcat(buffer, "vous");
+						}
+							
+						strcat(buffer, ", ");
+					}
+					sendClient(clients[i].msg_client_sock, buffer, strlen(buffer)+1);
+				}
 				else if (!strcmp(buffer, "/abort"))		// "Si l'on reçoit une commande du type /abort"	
 				{
 					/* On n'a pas besoin de faire de test car le /abort ne peut être envoyé par l'utilisateur */
@@ -189,7 +210,10 @@ int main(int argc, char *argv[])
 					printf("%s\n", buffer);
 					for (j = 0; j < clients_nb; j++)
 					{	
-						sendClient(clients[j].msg_client_sock, buffer, strlen(buffer)+1);
+						if (j != i)
+						{
+							sendClient(clients[j].msg_client_sock, buffer, strlen(buffer)+1);
+						}
 					}
 				}
 			}
@@ -230,6 +254,60 @@ int main(int argc, char *argv[])
 					sendClient(data.sending_client.msg_client_sock, buffer, strlen(buffer)+1);
 					sendClient(data.receiving_client.msg_client_sock, buffer, strlen(buffer)+1);
 					printf("< FTS > Transfert annulé avec succès !\n");
+				}
+			}
+			else if (!strcmp(buffer, "/quit"))		// "Si l'utilisateur entre une commande du type /abort"	
+			{
+				close(passive_server_sock);
+				printf("\n\nDéconnexion réussie\n");
+				exit(EXIT_SUCCESS);
+			}
+			//si /kick ... on déconnecte le client demandé
+			else if(!strncmp(buffer, "/kick", 5))
+			{
+				//pour récuperer le pseudo rentré en deuxième parametre
+				username = strtok(buffer, " ");
+				username = strtok(NULL, " ");
+				if (username != NULL)
+				{	
+					success = 0;
+					username[USERNAME_SIZE - 1] = '\0';
+					//on cherche le client en comparant avec la liste des pseudos
+					for(i = 0; i < clients_nb; i++)
+					{
+						if(strcmp(clients[i].username, username) == 0)
+						{
+							rmvClient(clients, i, &clients_nb, &max_fd, passive_server_sock);
+							sprintf(formatting_buffer, "%s a été déconnecté \n", username);
+							formatting_buffer[BUFFER_SIZE-1] = '\0';
+							strcpy(buffer, formatting_buffer);
+							printf("%s\n", buffer);
+							for (j = 0; j < clients_nb; j++)
+							{	
+								sendClient(clients[j].msg_client_sock, buffer, strlen(buffer)+1);
+							}
+							success = 1;
+						}
+					}
+
+					//verifie que le client a bien été deconnecté
+					if(success == 0)
+					{
+						printf("Le client n'existe pas !\n");
+					}
+				}
+				else
+				{
+					printf("Veuillez rentrer un pseudo après /kick!\n");
+				}
+			}
+			//si /list on liste les clients connectés
+			else if(!strncmp(buffer, "/list", 5))
+			{
+				printf("\nVoici les clients connectés : \n");
+				for (i = 0; i < clients_nb; i++)
+				{
+					printf("%s\n", clients[i].username);
 				}
 			}
 			else

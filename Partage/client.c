@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <ncurses.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -19,9 +20,12 @@ int main(int argc, char *argv[])
 	-> L'adresse IP du serveur
 	-> Le port du serveur */
 
-	char buffer[BUFFER_SIZE] = "";		// Buffer de 1024 octets pour l'envoi ou la réception de paquets à travers le réseau
+	char buffer[BUFFER_SIZE] = "";			// Buffer de 1024 octets pour l'envoi ou la réception de paquets à travers le réseau
+	char msg_buffer[BUFFER_SIZE] = "";	// Buffer de 1024 octets pour les messages qu'entre l'utilisateur caractère parcaractère
 	char path[PATH_SIZE] = "";
 	char dest_username[USERNAME_SIZE] = "";
+	WINDOW *top_win, *bottom_win;
+	int line = 0, letter, msg_len = 0;
 
 	int msg_server_sock = 0;
 	int file_server_sock = 0;
@@ -32,10 +36,9 @@ int main(int argc, char *argv[])
 	fd_set readfs;
 	pthread_t file_transfer = 0;
 	pthread_mutex_t mutex_thread_status = PTHREAD_MUTEX_INITIALIZER;
-	struct TransferDetails data = {NULL, 0, 0, NULL, NULL};
+	struct TransferDetails data;
 
-	int reset = 0;
-	char *char_ptr = NULL;
+	int i = 0;
 
 	char *username = NULL;
 	char *address = NULL;
@@ -61,6 +64,24 @@ int main(int argc, char *argv[])
 	sendServer(msg_server_sock, username, strlen(username)+1);
 	max_fd = (msg_server_sock >= file_server_sock) ? msg_server_sock : file_server_sock;
 
+	//Initialisation de l'interface graphique
+	initscr();
+	keypad(stdscr, TRUE); //pour récupérer les touches spéciales du clavier
+	top_win = subwin(stdscr, LINES - 3, COLS, 0, 0);
+    bottom_win = subwin(stdscr, 3, COLS, LINES - 3, 0);
+	initInterface(top_win, bottom_win);
+
+	//creation de la conversation (je suis obligé de faire l'initialisation de la conversation à cet endroit 
+    //car il faut la faire après initscr())
+	char **conversation = calloc(LINES - 6, sizeof(char *));
+	for (i = 0; i < LINES - 6; i++)
+	{
+		conversation[i] = calloc(BUFFER_SIZE, sizeof(char));
+	}
+
+	//se positionn au bon endroit pour ecrire le message
+	move(LINES - 2, 11);
+
 	/* Traitement des requêtes */
 
 	while(TRUE)
@@ -72,6 +93,7 @@ int main(int argc, char *argv[])
 
 		if((selector = select(max_fd + 1, &readfs, NULL, NULL, NULL)) < 0)
 		{
+			endwin();
 			perror("< FERROR > select error");
 			exit(errno);
 		}
@@ -101,7 +123,7 @@ int main(int argc, char *argv[])
 			{
 				if (pthread_mutex_trylock(&mutex_thread_status) == EBUSY)
 				{
-					printf("< FTS > Un transfert est déjà en cours, patientez...\n");
+					writeInConv("< FTS > Un transfert est déjà en cours, patientez...", conversation, &line, top_win, bottom_win);
 					sprintf(buffer, "%d", 0);
 					sendServer(file_server_sock, buffer, strlen(buffer)+1);
 				}
@@ -109,7 +131,7 @@ int main(int argc, char *argv[])
 				{
 					if (thread_status == 1)
 					{
-						printf("< FTS > Un transfert est déjà en cours, patientez...\n");
+						writeInConv("< FTS > Un transfert est déjà en cours, patientez...", conversation, &line, top_win, bottom_win);
 						sprintf(buffer, "%d", 0);
 						sendServer(file_server_sock, buffer, strlen(buffer)+1);
 					}
@@ -120,28 +142,32 @@ int main(int argc, char *argv[])
 					}
 					if (thread_status == 0)				// Pas de else car thread_status pourrait être modifié par le if précédent
 					{
-						answer = answerSendingRequest(buffer, path);
+						answer = answerSendingRequest(buffer, path, conversation, &line, top_win, bottom_win);
 						sprintf(buffer, "%d", answer);
 						sendServer(file_server_sock, buffer, strlen(buffer)+1);
 						if (answer)
 						{
-							printf("< FTS > Vous avez accepté le transfert\n");
+							writeInConv("< FTS > Vous avez accepté le transfert", conversation, &line, top_win, bottom_win);
 							data.path = path;
 							data.file_server_sock = file_server_sock;
 							data.msg_server_sock = msg_server_sock;
 							data.thread_status = &thread_status;
 							data.mutex_thread_status = &mutex_thread_status;
+							data.conversation = conversation;
+							data.line = &line;
+							data.top_win = top_win;
+							data.bottom_win = bottom_win;
 
 							thread_status = 1;
 							if (pthread_create(&file_transfer, NULL, transferRecvControl, &data) != 0)
 							{
-								fprintf(stderr, "< FTS > Le démarrage de la réception a échoué\n");
+								writeInConv("< FTS > Le démarrage de la réception a échoué", conversation, &line, top_win, bottom_win);
 								thread_status = 0;
 							}
 						}
 						else
 						{
-							printf("< FTS > Le fichier ne sera pas reçu\n\n");
+							writeInConv("< FTS > Le fichier ne sera pas reçu", conversation, &line, top_win, bottom_win);
 						}
 					}
 					pthread_mutex_unlock(&mutex_thread_status);
@@ -149,12 +175,13 @@ int main(int argc, char *argv[])
 			}
 			else if (!strncmp(buffer, "/abort", 6))
 			{
+				endwin();
 				fprintf(stderr, "< FERROR > Une erreur a eu lieu pendant le transfert\n");
 				exit(EXIT_FAILURE);
 			}
 			else
 			{
-				printf("%s\n", buffer);
+				writeInConv(buffer, conversation, &line, top_win, bottom_win);
 			}
 		}
 
@@ -162,90 +189,136 @@ int main(int argc, char *argv[])
 		{
 			/* Des données sont disponibles sur l'entrée standard */
 
-			if (fgets(buffer, sizeof(buffer), stdin) == NULL)
+			//récupère la lettre entrée 
+			letter = getch();
+
+			//si ce n'est pas la touch entrée et que l'on n'a pas remplit la ligne
+			//10 = touche entrée
+			if(letter != 10 && letter != 263 && msg_len < COLS - 14)
 			{
-				perror("< FERROR > fgets error");
-				exit(errno);
+				//on met la lettre dans le bufferMessagEntre
+				msg_buffer[msg_len] = letter;
+				msg_len++;
+				move(LINES - 2, 11 + msg_len); //met le curseur au bon endroit
+				wrefresh(bottom_win); //rafraichit
+			}
+			//si on appuie sur la touche retour pour effacer un caractère
+			else if (letter == 263 && msg_len > 0)
+			{
+				msg_len--;
+				msg_buffer[msg_len] = ' ';
+				mvwprintw(bottom_win, 1, 11 + msg_len, " ");
+				//wclrtoeol(bottom_win); //on supprime le message saisie
+				convRefresh(top_win, bottom_win);
+				//mvwprintw(bottom_win, 1, 11, msg_buffer);
+				move(LINES - 2, 11 + msg_len); //met le curseur au bon endroit
+				convRefresh(top_win, bottom_win); //rafraichit
 			}
 
-			char_ptr = strchr(buffer, '\n');
-			if (char_ptr != NULL)
+			else if(letter == 10)
 			{
-				*char_ptr = '\0';
-			}
-			else
-			{
-				while (reset != '\n' && reset != EOF)
+				//on met le buffer
+				msg_buffer[msg_len] = '\0';
+				msg_len = 0;
+
+				//se déconnecte du chat si le message est "/quit"
+				if(!strcmp(msg_buffer, "/quit"))
 				{
-					reset = getchar();
+					close(msg_server_sock);
+					close(file_server_sock);
+					endwin();
+					printf("\nDeconnexion réussie\n\n");
+					exit(EXIT_SUCCESS);
 				}
-			}
 
-			if (!strncmp(buffer, "/sendto", 7))
-			{
-				if (pthread_mutex_trylock(&mutex_thread_status) == EBUSY)
+				else if (!strcmp(msg_buffer, "/abort"))
 				{
-					printf("< FTS > Un transfert est déjà en cours, patientez...\n");
-				}		
-				else
+					writeInConv("< ERROR > Cette commande n'est pas autorisée", conversation, &line, top_win, bottom_win);
+				}
+
+				else if (!strncmp(msg_buffer, "/sendto", 7))
 				{
-					if (thread_status == 1)
+					if (pthread_mutex_trylock(&mutex_thread_status) == EBUSY)
 					{
-						printf("< FTS > Un transfert est déjà en cours, patientez...\n");
-					}
-					else if (thread_status == -1)
+						writeInConv("< FTS > Un transfert est déjà en cours, patientez...", conversation, &line, top_win, bottom_win);
+					}		
+					else
 					{
-						pthread_join(file_transfer, NULL);
-						thread_status = 0;
-					}
-					if (thread_status == 0)				// Pas de else car thread_status pourrait être modifié par le if précédent
-					{
-						if (verifySendingRequest(buffer, dest_username, path) && verifyDirectory(path))
+						if (thread_status == 1)
 						{
-							sendServer(msg_server_sock, buffer, strlen(buffer)+1);		// Envoi de la requête brute
-							recvServer(file_server_sock, buffer, sizeof(buffer));
-							answer = atoi(buffer);
-							if (answer == -1)
+							writeInConv("< FTS > Un transfert est déjà en cours, patientez...", conversation, &line, top_win, bottom_win);
+						}
+						else if (thread_status == -1)
+						{
+							pthread_join(file_transfer, NULL);
+							thread_status = 0;
+						}
+						if (thread_status == 0)				// Pas de else car thread_status pourrait être modifié par le if précédent
+						{
+							if (verifySendingRequest(msg_buffer, dest_username, path, conversation, &line, top_win, bottom_win)
+								&& verifyDirectory(path, conversation, &line, top_win, bottom_win))
 							{
-								fprintf(stderr, "< FTS > L'username n'est pas connu par le serveur\n");
-							}
-							else if (answer == -2)
-							{
-								printf("< FTS > Un transfert est déjà en cours, patientez...\n");
-							}
-							else if (answer == 0)
-							{
-								printf("< FTS > Le destinataire ne souhaite pas recevoir le fichier\n        Il a peut-être peur de vous...\n\n");
-							}
-							else
-							{
-								data.path = path;
-								data.file_server_sock = file_server_sock;
-								data.msg_server_sock = msg_server_sock;
-								data.thread_status = &thread_status;
-								data.mutex_thread_status = &mutex_thread_status;
-
-								thread_status = 1;
-								if (pthread_create(&file_transfer, NULL, transferSendControl, &data) != 0)
+								sendServer(msg_server_sock, msg_buffer, strlen(buffer)+1);		// Envoi de la requête brute
+								recvServer(file_server_sock, buffer, sizeof(buffer));
+								answer = atoi(buffer);
+								if (answer == -1)
 								{
-									fprintf(stderr, "< FTS > Le démarrage de l'envoi a échoué\n");
-									thread_status = 0;
+									writeInConv("< FTS > L'username n'est pas connu par le serveur", conversation, &line, top_win, bottom_win);
+								}
+								else if (answer == -2)
+								{
+									writeInConv("< FTS > Un transfert est déjà en cours, patientez...", conversation, &line, top_win, bottom_win);
+								}
+								else if (answer == 0)
+								{
+									writeInConv("< FTS > Le destinataire ne souhaite pas recevoir le fichier", conversation, &line, top_win, bottom_win);
+									writeInConv("        Il a peut-être peur de vous", conversation, &line, top_win, bottom_win);
+								}
+								else
+								{
+									data.path = path;
+									data.file_server_sock = file_server_sock;
+									data.msg_server_sock = msg_server_sock;
+									data.thread_status = &thread_status;
+									data.mutex_thread_status = &mutex_thread_status;
+									data.conversation = conversation;
+									data.line = &line;
+									data.top_win = top_win;
+									data.bottom_win = bottom_win;
+
+									thread_status = 1;
+									if (pthread_create(&file_transfer, NULL, transferSendControl, &data) != 0)
+									{
+										writeInConv("< FTS > Le démarrage de l'envoi a échoué", conversation, &line, top_win, bottom_win);
+										thread_status = 0;
+									}
 								}
 							}
 						}
+						pthread_mutex_unlock(&mutex_thread_status);
 					}
-					pthread_mutex_unlock(&mutex_thread_status);
 				}
-			}
-			else if (!strcmp(buffer, "/abort"))
-			{
-				printf("Cette commande n'est pas autorisée\n");
-			}
-			else
-			{
-				/* On a affaire à un message standard */
-				sendServer(msg_server_sock, buffer, strlen(buffer)+1);
-			} 
+
+				//verifie que le message n'est pas null
+				else if(strcmp(msg_buffer, "") != 0)
+				{
+					sendServer(msg_server_sock, msg_buffer, strlen(msg_buffer)+1);
+					
+					//si le message n'est pas la commande "/list" on affiche le message
+					if(strcmp(msg_buffer, "/list") != 0)
+					{
+						//ecrit le message dans la conversation en rajouter "vous" devant
+						sprintf(buffer, "Vous : %s", msg_buffer);
+			
+						writeInConv(buffer, conversation, &line, top_win, bottom_win);
+	        		}
+	        	}
+	        	strcpy(msg_buffer, " "); // on efface le buffer
+	        	move(LINES - 2, 11); //on se remet au debut de la ligne du message
+				//wclrtoeol(fenBas); //on supprime le message saisie
+				werase(bottom_win);
+				convRefresh(top_win, bottom_win);
+	        }
 		}
 	}
 

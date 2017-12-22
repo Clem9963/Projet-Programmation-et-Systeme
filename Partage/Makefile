@@ -22,7 +22,7 @@ server : Object_files/server.o Object_files/server_functions.o
 	@echo Exécutable généré via $(COMPILER) en mode $(BUILD) $(LIB)
 
 client : Object_files/client.o Object_files/client_functions.o
-	$(COMPILER) $(LFLAGS) $(CFLAGS) Object_files/client.o Object_files/client_functions.o -o client.bin -lpthread
+	$(COMPILER) $(LFLAGS) $(CFLAGS) Object_files/client.o Object_files/client_functions.o -o client.bin -lpthread -lncurses
 	@echo
 	@echo Exécutable généré via $(COMPILER) en mode $(BUILD) $(LIB)
 
