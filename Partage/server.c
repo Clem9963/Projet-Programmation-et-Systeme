@@ -87,15 +87,39 @@ int main(int argc, char *argv[])
 		{
 			/* Des données sont disponibles sur la socket du serveur */
 
-			/* Même si clients_nb et modifié par la fonction, c'est toujours l'ancienne valeur qui est prise en compte lors de l'affectation */
+			/* Même si clients_nb est modifié par la fonction, c'est toujours l'ancienne valeur qui est prise en compte lors de l'affectation */
 			clients[clients_nb] = newClient(passive_server_sock, &clients_nb, &max_fd);
-			sprintf(formatting_buffer, "Bienvenue %s", clients[clients_nb-1].username);
-			sendClient(clients[clients_nb-1].msg_client_sock, formatting_buffer, strlen(formatting_buffer)+1);
-			sprintf(formatting_buffer, "%s s'est connecté", clients[clients_nb-1].username);
-			formatting_buffer[BUFFER_SIZE-1] = '\0';
-			strcpy(buffer, formatting_buffer);
-			printf("%s\n", buffer);
-			sendToOther(clients, buffer, clients_nb-1, clients_nb);
+			success = TRUE;
+			for (i = 0; i < clients_nb-1 && success; i++)
+			{
+				if (!strcmp(clients[i].username, clients[clients_nb-1].username))
+				{
+					success = FALSE;
+				}
+			}
+			if (!success)
+			{
+				sprintf(buffer, "%d", FALSE);
+				sendClient(clients[clients_nb-1].msg_client_sock, buffer, strlen(buffer)+1);
+				recvClient(clients[i].msg_client_sock, buffer, sizeof(buffer));				// Accusé de réception pour la synchronisation
+				rmvClient(clients, clients_nb-1, &clients_nb, &max_fd, passive_server_sock);
+			}
+			if (success)
+			{
+				sprintf(buffer, "%d", TRUE);
+				sendClient(clients[clients_nb-1].msg_client_sock, buffer, strlen(buffer)+1);
+				recvClient(clients[i].msg_client_sock, buffer, sizeof(buffer));				// Accusé de réception pour la synchronisation
+				
+				sprintf(formatting_buffer, "Bienvenue %s", clients[clients_nb-1].username);
+				formatting_buffer[BUFFER_SIZE-1] = '\0';
+				strcpy(buffer, formatting_buffer);
+				sendClient(clients[clients_nb-1].msg_client_sock, buffer, strlen(buffer)+1);
+				
+				sprintf(formatting_buffer, "%s s'est connecté", clients[clients_nb-1].username);
+				formatting_buffer[BUFFER_SIZE-1] = '\0';
+				printf("%s\n", buffer);
+				sendToOther(clients, buffer, clients_nb-1, clients_nb);
+			}
 		}
 
 		for (i = 0; i < clients_nb; i++)

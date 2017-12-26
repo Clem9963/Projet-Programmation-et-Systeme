@@ -62,6 +62,13 @@ int main(int argc, char *argv[])
 
 	connectSocket(address, port, &msg_server_sock, &file_server_sock);
 	sendServer(msg_server_sock, username, strlen(username)+1);
+	recvServer(msg_server_sock, buffer, sizeof(buffer));		// Réponse du serveur quant à la disponibilité du pseudo
+	if (!atoi(buffer))											// Si la réponse est fausse, le pseudo est déjà utilisé
+	{
+		fprintf(stderr, "< FERROR > Le pseudonyme est déjà utilisé par un autre utilisateur\n");
+	}
+	buffer[0] = -1;												// Accusé de réception (pour la synchronisation)
+	sendServer(msg_server_sock, buffer, 1);
 	max_fd = (msg_server_sock >= file_server_sock) ? msg_server_sock : file_server_sock;
 
 	//Initialisation de l'interface graphique

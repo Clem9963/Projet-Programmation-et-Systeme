@@ -1,8 +1,4 @@
-erreur :
-au niveau du client qui fait /sendto
-
 amelioration :
-serveur qui verifie que le pseudo n'est pas dans la liste des pseudo
 faire le deplacement du  curseur
 commenter le texte
 peut etre une fonction pour liberer les different elements de la memoire ??
