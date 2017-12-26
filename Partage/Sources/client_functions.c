@@ -64,7 +64,7 @@ int answerSendingRequest(char *request, char *path, char **conversation, int *li
 	{
 		sprintf(msg_buffer, "< FTS > Voulez-vous recevoir le fichier %s ?", file_name);
 		writeInConv(msg_buffer, conversation, line, top_win, bottom_win);
-		writeInConv("1 : Oui, 0 : Non", conversation, line, top_win, bottom_win);
+		writeInConv("       1 : Oui, 0 : Non", conversation, line, top_win, bottom_win);
 		while (answer != 0 && answer != 1)
 		{
 			werase(bottom_win);					// On efface le message entamé pour attendre la réponse d'acceptation de la réception

@@ -112,6 +112,7 @@ int main(int argc, char *argv[])
 		{
 			/* Des données sont disponibles sur la socket du serveur */
 
+
 			if (!recvServer(msg_server_sock, buffer, sizeof(buffer)))
 			{
 				endwin();
@@ -257,7 +258,8 @@ int main(int argc, char *argv[])
 							if (verifySendingRequest(msg_buffer, dest_username, path, conversation, &line, top_win, bottom_win)
 								&& verifyDirectory(path, conversation, &line, top_win, bottom_win))
 							{
-								sendServer(msg_server_sock, msg_buffer, strlen(buffer)+1);		// Envoi de la requête brute
+								writeInConv("< FTS > Envoi de la requête en cours. En attente d'une réponse...", conversation, &line, top_win, bottom_win);
+								sendServer(msg_server_sock, msg_buffer, strlen(msg_buffer)+1);		// Envoi de la requête brute
 								recvServer(file_server_sock, buffer, sizeof(buffer));
 								answer = atoi(buffer);
 								if (answer == -1)
