@@ -244,6 +244,26 @@ int sendClient(int sock, char *buffer, size_t buffer_size)		// On pourra mettre 
 	return TRUE;
 }
 
+void sendToAll(struct Client *clients, char *buffer, int clients_nb)
+{
+	int i;
+	for (i = 0; i < clients_nb; i++)
+	{	
+		sendClient(clients[i].msg_client_sock, buffer, strlen(buffer)+1);
+	}
+}
+
+void sendToOther(struct Client *clients, char *buffer, int ind, int clients_nb)
+{
+	int i;
+	for (i = 0; i < clients_nb; i++)
+	{	if(i != ind)
+		{
+			sendClient(clients[i].msg_client_sock, buffer, strlen(buffer)+1);
+		}
+	}
+}
+
 int max(int a, int b)
 {
 	return (a >= b) ? a : b;

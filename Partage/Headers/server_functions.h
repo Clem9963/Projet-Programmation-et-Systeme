@@ -34,6 +34,8 @@ void rmvClient(struct Client *clients, int i_to_remove, int *nb_c, int *max_fd, 
 /* Envoi et réception */
 int recvClient(int sock, char *buffer, size_t buffer_size);
 int sendClient(int sock, char *buffer, size_t buffer_size);
+void sendToAll(struct Client *clients, char *buffer, int clients_nb);
+void sendToOther(struct Client *clients, char *buffer, int ind, int clients_nb);
 
 /* Fonction annexe */
 int max(int a, int b);

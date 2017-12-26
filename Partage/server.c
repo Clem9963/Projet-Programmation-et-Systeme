@@ -55,6 +55,8 @@ int main(int argc, char *argv[])
 	passive_server_sock = listenSocket(port);
 	max_fd = passive_server_sock;
 
+	printf("\nServeur opérationnel\n\n");
+
 	while(TRUE)
 	{
 		FD_ZERO(&readfs);
@@ -87,15 +89,13 @@ int main(int argc, char *argv[])
 
 			/* Même si clients_nb et modifié par la fonction, c'est toujours l'ancienne valeur qui est prise en compte lors de l'affectation */
 			clients[clients_nb] = newClient(passive_server_sock, &clients_nb, &max_fd);
-			strcpy(formatting_buffer, "Connexion de ");
-			strcat(formatting_buffer, clients[clients_nb-1].username);
+			sprintf(formatting_buffer, "Bienvenue %s", clients[clients_nb-1].username);
+			sendClient(clients[clients_nb-1].msg_client_sock, formatting_buffer, strlen(formatting_buffer)+1);
+			sprintf(formatting_buffer, "%s s'est connecté", clients[clients_nb-1].username);
 			formatting_buffer[BUFFER_SIZE-1] = '\0';
 			strcpy(buffer, formatting_buffer);
 			printf("%s\n", buffer);
-			for (j = 0; j < clients_nb; j++)
-			{	
-				sendClient(clients[j].msg_client_sock, buffer, strlen(buffer)+1);
-			}
+			sendToOther(clients, buffer, clients_nb-1, clients_nb);
 		}
 
 		for (i = 0; i < clients_nb; i++)
@@ -111,10 +111,7 @@ int main(int argc, char *argv[])
 					formatting_buffer[BUFFER_SIZE-1] = '\0';
 					strcpy(buffer, formatting_buffer);
 					printf("%s\n", buffer);
-					for (j = 0; j < clients_nb; j++)
-					{	
-						sendClient(clients[j].msg_client_sock, buffer, strlen(buffer)+1);
-					}
+					sendToAll(clients, buffer, clients_nb);
 					rmvClient(clients, i, &clients_nb, &max_fd, passive_server_sock);
 				}
 				else if (!strncmp(buffer, "/sendto", 7))		// ATTENTION ! strncmp renvoie 0 si les deux chaînes sont égales !
@@ -167,7 +164,7 @@ int main(int argc, char *argv[])
 						pthread_mutex_unlock(&mutex_thread_status);
 					}
 				}
-				if(!strcmp(buffer, "/list"))
+				else if(!strcmp(buffer, "/list"))
 				{
 					printf("%s : /list\n", clients[i].username);
 					strcpy(buffer, "Les clients connectés sont : ");
@@ -202,19 +199,14 @@ int main(int argc, char *argv[])
 				}
 				else	// Ce qui se trouvait dans le buffer du client est tout de même envoyé pour le chat, d'où le "else"
 				{
+					strcpy(formatting_buffer, "");
 					strcpy(formatting_buffer, clients[i].username);
 					strcat(formatting_buffer, " : ");
 					strcat(formatting_buffer, buffer);
 					formatting_buffer[BUFFER_SIZE-1] = '\0';
 					strcpy(buffer, formatting_buffer);
 					printf("%s\n", buffer);
-					for (j = 0; j < clients_nb; j++)
-					{	
-						if (j != i)
-						{
-							sendClient(clients[j].msg_client_sock, buffer, strlen(buffer)+1);
-						}
-					}
+					sendToOther(clients, buffer, i, clients_nb);
 				}
 			}
 		}
@@ -278,14 +270,11 @@ int main(int argc, char *argv[])
 						if(strcmp(clients[i].username, username) == 0)
 						{
 							rmvClient(clients, i, &clients_nb, &max_fd, passive_server_sock);
+							printf("%s déconnecté avec succès\n", username);
 							sprintf(formatting_buffer, "%s a été déconnecté \n", username);
 							formatting_buffer[BUFFER_SIZE-1] = '\0';
 							strcpy(buffer, formatting_buffer);
-							printf("%s\n", buffer);
-							for (j = 0; j < clients_nb; j++)
-							{	
-								sendClient(clients[j].msg_client_sock, buffer, strlen(buffer)+1);
-							}
+							sendToAll(clients, buffer, clients_nb);
 							success = 1;
 						}
 					}
@@ -317,10 +306,7 @@ int main(int argc, char *argv[])
 				formatting_buffer[BUFFER_SIZE-1] = '\0';
 				strcpy(buffer, formatting_buffer);
 				printf("%s\n", buffer);
-				for (i = 0; i < clients_nb; i++)
-				{	
-					sendClient(clients[i].msg_client_sock, buffer, strlen(buffer)+1);
-				}
+				sendToAll(clients, buffer, clients_nb);
 			}
 		}
 	}

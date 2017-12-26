@@ -1,14 +1,8 @@
 erreur :
-quand serveur fait /quit ->client
-quand serveur fait /kick ... -> client
 au niveau du client qui fait /sendto
 
 amelioration :
-serveur envoi bienvenue ... au client qui se connecte
-serveur affiche serveur operationnel quand il se lance
 serveur qui verifie que le pseudo n'est pas dans la liste des pseudo
-enlever "message : " en bas pour gagner de la place
-farire bien comme il faut pour effacer une lettre
+faire le deplacement du  curseur
 commenter le texte
-faire des fonctions pour envoyer aux autres personnes et envoyer a toutes les personnes
 peut etre une fonction pour liberer les different elements de la memoire ??

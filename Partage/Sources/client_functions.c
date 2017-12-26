@@ -356,12 +356,21 @@ void initInterface(WINDOW *top_win, WINDOW *bottom_win)
 	box(top_win, ACS_VLINE, ACS_HLINE);
 	box(bottom_win, ACS_VLINE, ACS_HLINE);
 	mvwprintw(top_win, 1, 1,"Messages : ");
-	mvwprintw(bottom_win, 1, 1, "Message : ");
+	mvwprintw(bottom_win, 1, 1, " : ");
 }
 
 void writeInConv(char *buffer, char **conversation, int *line, WINDOW *top_win, WINDOW *bottom_win)
 {
 	int i = 0;
+
+	//verifie le message et met "..." a la fin si le message est trop lonng
+	if((int)strlen(buffer) > COLS - 2 )
+	{
+		buffer[COLS - 5] = '.';
+		buffer[COLS - 4] = '.';
+		buffer[COLS - 3] = '.';
+		buffer[COLS - 2] = '\0';
+	}
 
 	//on ecrit le nouveau message dans le chat
 	if(*line < LINES - 6)
@@ -398,7 +407,7 @@ void convRefresh(WINDOW *top_win, WINDOW *bottom_win)
 	/* Rafraîchit l'interface */
 	box(bottom_win, ACS_VLINE, ACS_HLINE);	//recrée les cadres
 	box(top_win, ACS_VLINE, ACS_HLINE);
-	mvwprintw(bottom_win, 1, 1, "Message : ");
+	mvwprintw(bottom_win, 1, 1, " : ");
 	wrefresh(top_win);
 	wrefresh(bottom_win);
 }

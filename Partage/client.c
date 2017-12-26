@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 	}
 
 	//se positionn au bon endroit pour ecrire le message
-	move(LINES - 2, 11);
+	move(LINES - 2, 4);
 
 	/* Traitement des requêtes */
 
@@ -114,6 +114,7 @@ int main(int argc, char *argv[])
 
 			if (!recvServer(msg_server_sock, buffer, sizeof(buffer)))
 			{
+				endwin();
 				printf("< FERROR > Le serveur n'est plus joignable\n");
 				close(msg_server_sock);
 				close(file_server_sock);
@@ -194,12 +195,12 @@ int main(int argc, char *argv[])
 
 			//si ce n'est pas la touch entrée et que l'on n'a pas remplit la ligne
 			//10 = touche entrée
-			if(letter != 10 && letter != 263 && msg_len < COLS - 14)
+			if(letter != 10 && letter != 263 && msg_len < COLS - 5)
 			{
 				//on met la lettre dans le bufferMessagEntre
 				msg_buffer[msg_len] = letter;
 				msg_len++;
-				move(LINES - 2, 11 + msg_len); //met le curseur au bon endroit
+				move(LINES - 2, 4 + msg_len); //met le curseur au bon endroit
 				wrefresh(bottom_win); //rafraichit
 			}
 			//si on appuie sur la touche retour pour effacer un caractère
@@ -207,15 +208,13 @@ int main(int argc, char *argv[])
 			{
 				msg_len--;
 				msg_buffer[msg_len] = ' ';
-				mvwprintw(bottom_win, 1, 11 + msg_len, " ");
+				mvwprintw(bottom_win, 1, 4 + msg_len, " ");
 				//wclrtoeol(bottom_win); //on supprime le message saisie
-				convRefresh(top_win, bottom_win);
-				//mvwprintw(bottom_win, 1, 11, msg_buffer);
-				move(LINES - 2, 11 + msg_len); //met le curseur au bon endroit
+				//mvwprintw(bottom_win, 1, 4, msg_buffer);
+				move(LINES - 2, 4 + msg_len); //met le curseur au bon endroit
 				convRefresh(top_win, bottom_win); //rafraichit
 			}
-
-			else if(letter == 10)
+			else
 			{
 				//on met le buffer
 				msg_buffer[msg_len] = '\0';
@@ -314,7 +313,7 @@ int main(int argc, char *argv[])
 	        		}
 	        	}
 	        	strcpy(msg_buffer, " "); // on efface le buffer
-	        	move(LINES - 2, 11); //on se remet au debut de la ligne du message
+	        	move(LINES - 2, 4); //on se remet au debut de la ligne du message
 				//wclrtoeol(fenBas); //on supprime le message saisie
 				werase(bottom_win);
 				convRefresh(top_win, bottom_win);
