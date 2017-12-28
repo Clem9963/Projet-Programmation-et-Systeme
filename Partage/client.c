@@ -66,6 +66,9 @@ int main(int argc, char *argv[])
 	if (!atoi(buffer))											// Si la réponse est fausse, le pseudo est déjà utilisé
 	{
 		fprintf(stderr, "< FERROR > Le pseudonyme est déjà utilisé par un autre utilisateur\n");
+		close(msg_server_sock);
+		close(file_server_sock);
+		exit(-1);
 	}
 	buffer[0] = -1;												// Accusé de réception (pour la synchronisation)
 	sendServer(msg_server_sock, buffer, 1);
