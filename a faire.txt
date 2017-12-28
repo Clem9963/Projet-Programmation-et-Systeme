@@ -1,4 +1,3 @@
 amelioration :
-faire le deplacement du  curseur
-commenter le texte
-peut etre une fonction pour liberer les different elements de la memoire ??
+suppresion des header en trop
+tester la commande sendto

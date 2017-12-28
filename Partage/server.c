@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 
 	port = atoi(argv[1]);
 
-	passive_server_sock = listenSocket(port);
+	passive_server_sock = listenSocket(port);		//ouverture du serveur
 	max_fd = passive_server_sock;
 
 	printf("\nServeur opérationnel\n\n");
@@ -89,6 +89,7 @@ int main(int argc, char *argv[])
 
 			/* Même si clients_nb est modifié par la fonction, c'est toujours l'ancienne valeur qui est prise en compte lors de l'affectation */
 			clients[clients_nb] = newClient(passive_server_sock, &clients_nb, &max_fd);
+			//verification que le pseudo est different des autres
 			success = TRUE;
 			for (i = 0; i < clients_nb-1 && success; i++)
 			{
@@ -97,6 +98,7 @@ int main(int argc, char *argv[])
 					success = FALSE;
 				}
 			}
+			//si le pseudo existe deja
 			if (!success)
 			{
 				sprintf(buffer, "%d", FALSE);
@@ -104,6 +106,7 @@ int main(int argc, char *argv[])
 				recvClient(clients[i].msg_client_sock, buffer, sizeof(buffer));				// Accusé de réception pour la synchronisation
 				rmvClient(clients, clients_nb-1, &clients_nb, &max_fd, passive_server_sock);
 			}
+			//si le pseudo n'existe pas
 			if (success)
 			{
 				sprintf(buffer, "%d", TRUE);
@@ -117,8 +120,8 @@ int main(int argc, char *argv[])
 				
 				sprintf(formatting_buffer, "%s s'est connecté", clients[clients_nb-1].username);
 				formatting_buffer[BUFFER_SIZE-1] = '\0';
-				printf("%s\n", buffer);
-				sendToOther(clients, buffer, clients_nb-1, clients_nb);
+				printf("%s\n", formatting_buffer);
+				sendToOther(clients, formatting_buffer, clients_nb-1, clients_nb);
 			}
 		}
 
@@ -188,6 +191,7 @@ int main(int argc, char *argv[])
 						pthread_mutex_unlock(&mutex_thread_status);
 					}
 				}
+				//si la requete du client est /list on lui envoit les clients connectés
 				else if(!strcmp(buffer, "/list"))
 				{
 					printf("%s : /list\n", clients[i].username);
@@ -207,7 +211,8 @@ int main(int argc, char *argv[])
 					}
 					sendClient(clients[i].msg_client_sock, buffer, strlen(buffer)+1);
 				}
-				else if (!strcmp(buffer, "/abort"))		// "Si l'on reçoit une commande du type /abort"	
+				// Si l'on reçoit une commande du type /abort
+				else if (!strcmp(buffer, "/abort"))		
 				{
 					/* On n'a pas besoin de faire de test car le /abort ne peut être envoyé par l'utilisateur */
 					/* En effet, seulement le thread relatif au transfert, s'il rencontre un problème peut être amené à générer une telle requête */
@@ -234,7 +239,7 @@ int main(int argc, char *argv[])
 				}
 			}
 		}
-
+		//ecoute de l'entrée standart
 		if(FD_ISSET(STDIN_FILENO, &readfs))
 		{
 			/* Des données sont disponibles sur l'entrée standard */
@@ -272,9 +277,16 @@ int main(int argc, char *argv[])
 					printf("< FTS > Transfert annulé avec succès !\n");
 				}
 			}
-			else if (!strcmp(buffer, "/quit"))		// "Si l'utilisateur entre une commande du type /abort"	
+			else if (!strcmp(buffer, "/quit"))		// "Si l'utilisateur entre une commande du type /quit"	
 			{
+				//on close tous les sockets
 				close(passive_server_sock);
+				for (i = 0; i < clients_nb; i++)
+				{
+					close(clients[i].msg_client_sock);
+					close(clients[i].file_client_sock);
+				}
+
 				printf("\n\nDéconnexion réussie\n");
 				exit(EXIT_SUCCESS);
 			}

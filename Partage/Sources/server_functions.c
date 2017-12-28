@@ -154,6 +154,8 @@ void *transferControl(void *src_data)
 
 struct Client newClient(int ssock, int *nb_c, int *max_fd)
 {
+	//récupère un nouveau client
+
 	int msg_client_sock = 0;
 	int file_client_sock = 0;
 	struct sockaddr_in csin;
@@ -199,6 +201,8 @@ struct Client newClient(int ssock, int *nb_c, int *max_fd)
 
 void rmvClient(struct Client *clients, int i_to_remove, int *nb_c, int *max_fd, int server_sock)
 {
+	//Déconnecte un client
+
 	int i = 0;
 
 	close(clients[i_to_remove].msg_client_sock);
@@ -218,6 +222,8 @@ void rmvClient(struct Client *clients, int i_to_remove, int *nb_c, int *max_fd, 
 
 int recvClient(int sock, char *buffer, size_t buffer_size)
 {
+	//recoit un message du client
+
 	ssize_t recv_outcome = 0;
 	recv_outcome = recv(sock, buffer, buffer_size, 0);
 	if (recv_outcome == SOCKET_ERROR)
@@ -235,6 +241,8 @@ int recvClient(int sock, char *buffer, size_t buffer_size)
 
 int sendClient(int sock, char *buffer, size_t buffer_size)		// On pourra mettre strlen(buffer)+1 pour les chaînes de caractères
 {
+	//envoi un message au client
+
 	if (send(sock, buffer, buffer_size, 0) == SOCKET_ERROR)
 	{
 		perror("< FERROR > send error");
@@ -246,6 +254,8 @@ int sendClient(int sock, char *buffer, size_t buffer_size)		// On pourra mettre 
 
 void sendToAll(struct Client *clients, char *buffer, int clients_nb)
 {
+	//envoi un message à tout les clients
+
 	int i;
 	for (i = 0; i < clients_nb; i++)
 	{	
@@ -255,6 +265,8 @@ void sendToAll(struct Client *clients, char *buffer, int clients_nb)
 
 void sendToOther(struct Client *clients, char *buffer, int ind, int clients_nb)
 {
+	///envoi un message aux autres clients 
+	
 	int i;
 	for (i = 0; i < clients_nb; i++)
 	{	if(i != ind)

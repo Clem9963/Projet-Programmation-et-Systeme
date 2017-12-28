@@ -17,6 +17,7 @@
 int verifyDirectory(char *path, char **conversation, int *line, WINDOW *top_win, WINDOW *bottom_win)
 {
 	/* Cette fonction vérifie si le chemin "path" est valide */
+
 	FILE *f = NULL;
 
 	f = fopen(path, "r");
@@ -53,7 +54,7 @@ int answerSendingRequest(char *request, char *path, char **conversation, int *li
 		{
 			endwin();
 			perror("mkdir error");
-			return 0;
+			exit(EXIT_FAILURE);
 		}
 	} 
 	file_name = strrchr(request, '/')+1;
@@ -290,6 +291,8 @@ void *transferRecvControl(void *src_data)
 
 void connectSocket(char* address, int port, int *msg_server_sock, int *file_server_sock)
 {
+	/*Cette fonction se connecte au serveur*/
+
 	*msg_server_sock = socket(AF_INET, SOCK_STREAM, 0);
 	*file_server_sock = socket(AF_INET, SOCK_STREAM, 0);
 	struct hostent* hostinfo;
@@ -353,6 +356,8 @@ void connectSocket(char* address, int port, int *msg_server_sock, int *file_serv
 
 void initInterface(WINDOW *top_win, WINDOW *bottom_win)
 {
+	/* Cette fonction initialise l'interface graphique*/
+
 	box(top_win, ACS_VLINE, ACS_HLINE);
 	box(bottom_win, ACS_VLINE, ACS_HLINE);
 	mvwprintw(top_win, 1, 1,"Messages : ");
@@ -361,6 +366,8 @@ void initInterface(WINDOW *top_win, WINDOW *bottom_win)
 
 void writeInConv(char *buffer, char **conversation, int *line, WINDOW *top_win, WINDOW *bottom_win)
 {
+	/* Cette fonction écrit un nouveau message dans la conversation */
+
 	int i = 0;
 
 	//verifie le message et met "..." a la fin si le message est trop lonng
@@ -405,6 +412,7 @@ void writeInConv(char *buffer, char **conversation, int *line, WINDOW *top_win, 
 void convRefresh(WINDOW *top_win, WINDOW *bottom_win)
 {
 	/* Rafraîchit l'interface */
+
 	box(bottom_win, ACS_VLINE, ACS_HLINE);	//recrée les cadres
 	box(top_win, ACS_VLINE, ACS_HLINE);
 	mvwprintw(bottom_win, 1, 1, " : ");
@@ -414,6 +422,8 @@ void convRefresh(WINDOW *top_win, WINDOW *bottom_win)
 
 int recvServer(int sock, char *buffer, size_t buffer_size)
 {
+	/* cette fonction recoit un message du serveur */
+
 	ssize_t recv_outcome = 0;
 	recv_outcome = recv(sock, buffer, buffer_size, 0);
 	if (recv_outcome == SOCKET_ERROR)
@@ -432,11 +442,31 @@ int recvServer(int sock, char *buffer, size_t buffer_size)
 
 int sendServer(int sock, char *buffer, size_t buffer_size)	// On pourra utiliser strlen(buffer)+1 pour buffer_size si l'on envoie une chaîne de caractères
 {
+	/* Cette fonction envoit un message au serveur */
+
 	if (send(sock, buffer, buffer_size, 0) == SOCKET_ERROR)
 	{
 		perror("< FERROR > send error");
+		close(sock);
 		exit(errno);
 	}
 
 	return EXIT_SUCCESS;
+}
+
+void clearMemory(int msg_server_sock, int file_server_sock, char **conversation, WINDOW *top_win, WINDOW *bottom_win)
+{
+	/* Cette fonction ferme les socket et efface les fenetres et le conversation de la mémoire */
+
+	int i;
+	close(msg_server_sock);
+	close(file_server_sock);
+	delwin(top_win);
+	delwin(bottom_win);
+	for (i = 0; i < LINES - 6; i++)
+	{
+		free(conversation[i]);
+	}
+	free(conversation);
+
 }

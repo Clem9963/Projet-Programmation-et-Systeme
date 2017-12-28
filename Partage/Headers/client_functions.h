@@ -36,4 +36,7 @@ void convRefresh(WINDOW *top_win, WINDOW *bottom_win);
 int recvServer(int sock, char *buffer, size_t buffer_size);
 int sendServer(int sock, char *buffer, size_t buffer_size);
 
+/* Fonction pour effacer les differents élements en mémoire */
+void clearMemory(int msg_server_sock, int file_server_sock, char **conversation, WINDOW *top_win, WINDOW *bottom_win);
+
 #endif

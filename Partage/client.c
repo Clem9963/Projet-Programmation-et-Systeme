@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
 	initInterface(top_win, bottom_win);
 
 	//creation de la conversation (je suis obligé de faire l'initialisation de la conversation à cet endroit 
-    //car il faut la faire après initscr())
+    //car il faut la faire après initscr() pour récupérer le "LINES")
 	char **conversation = calloc(LINES - 6, sizeof(char *));
 	for (i = 0; i < LINES - 6; i++)
 	{
@@ -102,6 +102,7 @@ int main(int argc, char *argv[])
 		{
 			endwin();
 			perror("< FERROR > select error");
+			clearMemory(msg_server_sock, file_server_sock, conversation, top_win, bottom_win);
 			exit(errno);
 		}
 
@@ -119,13 +120,11 @@ int main(int argc, char *argv[])
 		{
 			/* Des données sont disponibles sur la socket du serveur */
 
-
 			if (!recvServer(msg_server_sock, buffer, sizeof(buffer)))
 			{
+				clearMemory(msg_server_sock, file_server_sock, conversation, top_win, bottom_win);
 				endwin();
 				printf("< FERROR > Le serveur n'est plus joignable\n");
-				close(msg_server_sock);
-				close(file_server_sock);
 				exit(EXIT_SUCCESS);
 			}
 			else if (!strncmp(buffer, "/sendto", 7))		// ATTENTION ! strncmp renvoie 0 si les deux chaînes sont égales !
@@ -184,6 +183,7 @@ int main(int argc, char *argv[])
 			}
 			else if (!strncmp(buffer, "/abort", 6))
 			{
+				clearMemory(msg_server_sock, file_server_sock, conversation, top_win, bottom_win);
 				endwin();
 				fprintf(stderr, "< FERROR > Une erreur a eu lieu pendant le transfert\n");
 				exit(EXIT_FAILURE);
@@ -201,15 +201,25 @@ int main(int argc, char *argv[])
 			//récupère la lettre entrée 
 			letter = getch();
 
-			//si ce n'est pas la touch entrée et que l'on n'a pas remplit la ligne
+			//si on appuie sur la touche flèche de gauche
+			if (letter == 260 && msg_len > 0)
+			{
+				msg_len--;
+				move(LINES - 2, 4 + msg_len);
+			}
+			//si on appuie sur la touche flèche de droite
+			else if (letter == 261 && msg_len < COLS - 5)
+			{
+				msg_len++;
+				move(LINES - 2, 4 + msg_len);
+			}
+			//si ce n'est pas la touche entrée et que l'on n'a pas remplit la ligne
 			//10 = touche entrée
-			if(letter != 10 && letter != 263 && msg_len < COLS - 5)
+			else if(letter != 10 && letter != 263 && msg_len < COLS - 5)
 			{
 				//on met la lettre dans le bufferMessagEntre
 				msg_buffer[msg_len] = letter;
 				msg_len++;
-				move(LINES - 2, 4 + msg_len); //met le curseur au bon endroit
-				wrefresh(bottom_win); //rafraichit
 			}
 			//si on appuie sur la touche retour pour effacer un caractère
 			else if (letter == 263 && msg_len > 0)
@@ -217,10 +227,8 @@ int main(int argc, char *argv[])
 				msg_len--;
 				msg_buffer[msg_len] = ' ';
 				mvwprintw(bottom_win, 1, 4 + msg_len, " ");
-				//wclrtoeol(bottom_win); //on supprime le message saisie
-				//mvwprintw(bottom_win, 1, 4, msg_buffer);
-				move(LINES - 2, 4 + msg_len); //met le curseur au bon endroit
-				convRefresh(top_win, bottom_win); //rafraichit
+				move(LINES - 2, 4 + msg_len);
+				wrefresh(bottom_win);
 			}
 			else
 			{
@@ -231,8 +239,7 @@ int main(int argc, char *argv[])
 				//se déconnecte du chat si le message est "/quit"
 				if(!strcmp(msg_buffer, "/quit"))
 				{
-					close(msg_server_sock);
-					close(file_server_sock);
+					clearMemory(msg_server_sock, file_server_sock, conversation, top_win, bottom_win);
 					endwin();
 					printf("\nDeconnexion réussie\n\n");
 					exit(EXIT_SUCCESS);
@@ -321,14 +328,18 @@ int main(int argc, char *argv[])
 						writeInConv(buffer, conversation, &line, top_win, bottom_win);
 	        		}
 	        	}
-	        	strcpy(msg_buffer, " "); // on efface le buffer
-	        	move(LINES - 2, 4); //on se remet au debut de la ligne du message
-				//wclrtoeol(fenBas); //on supprime le message saisie
+	        	//efface le buffer en entier
+	        	for (i = 0; i < (int)strlen(msg_buffer); i++)
+	        	{
+	        		msg_buffer[i] = ' ';
+	        	}
+	        	msg_buffer[0] = '\0';
 				werase(bottom_win);
 				convRefresh(top_win, bottom_win);
+				move(LINES - 2, 4); //on se remet au debut de la ligne du message
 	        }
 		}
 	}
-
+	clearMemory(msg_server_sock, file_server_sock, conversation, top_win, bottom_win);
 	return EXIT_SUCCESS;
 }
