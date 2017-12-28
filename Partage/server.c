@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
 					formatting_buffer[BUFFER_SIZE-1] = '\0';
 					strcpy(buffer, formatting_buffer);
 					printf("%s\n", buffer);
-					sendToAll(clients, buffer, clients_nb);
+					sendToOther(clients, buffer, i, clients_nb);
 					rmvClient(clients, i, &clients_nb, &max_fd, passive_server_sock);
 				}
 				else if (!strncmp(buffer, "/sendto", 7))		// ATTENTION ! strncmp renvoie 0 si les deux chaînes sont égales !

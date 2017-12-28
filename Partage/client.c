@@ -343,6 +343,7 @@ int main(int argc, char *argv[])
 	        }
 		}
 	}
+	
 	clearMemory(msg_server_sock, file_server_sock, conversation, top_win, bottom_win);
 	return EXIT_SUCCESS;
 }
