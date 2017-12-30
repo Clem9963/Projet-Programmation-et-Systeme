@@ -1,8 +1,4 @@
 ameliorations :
 - suppression des headers en trop
 - résoudre des bugs d'affichage
-- résoudre le bug d'affichage du pourcentage
 - ajout dans le compte rendu des explications de < FTS > et < FERROR > et < ERROR >
-- arrêt du thread de transfert lorsque l'utilisateur entre /abort chez le serveur
-- envoi de /abort dans le cas de l'impossibilité de la création du thread
-

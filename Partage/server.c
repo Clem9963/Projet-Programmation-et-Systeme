@@ -1,14 +1,3 @@
-#include <errno.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
-
 #include "server.h"
 #include "server_functions.h"
 
@@ -17,12 +6,12 @@ int main(int argc, char *argv[])
 	/* La fonction main attend 1 paramètre :
 	-> Le port du serveur */
 
-	char buffer[BUFFER_SIZE] = "";									// Buffer de 1024 octets pour l'envoi et le réception
-	char formatting_buffer[FORMATTING_BUFFER_SIZE] = "";			// Buffer de 1048 octets pour le formatage du message avant la copie dans buffer
-	char request[BUFFER_SIZE] = "";									// Buffer de 1024 octets pour stocker la requête /sendto
-	char *username;
-	struct Client clients[MAX_CLIENTS];
-	int clients_nb = 0;
+	char buffer[BUFFER_SIZE] = "";									// Buffer de 1024 octets pour l'envoi et le réception des messages
+	char formatting_buffer[FORMATTING_BUFFER_SIZE] = "";			// Buffer de 1048 octets pour le formatage du message avant la copie dans buffer, précédant l'envoi
+	char request[BUFFER_SIZE] = "";									// Buffer de 1024 octets pour stocker la requête "/sendto"
+	char *username;													// Pour récuperer le pseudo de l'utilisateur dans une commande "/kick"
+	struct Client clients[MAX_CLIENTS];								// Tableau des clients actifs
+	int clients_nb = 0;												// Nombre de clients connectés simultanément
 	int index = 0;
 
 	int port = 0;
@@ -32,17 +21,17 @@ int main(int argc, char *argv[])
 	int max_fd = 0;
 	fd_set readfs;
 
-	int thread_status = 0;	// 0 Si le thread n'est pas en cours, 1 s'il est en cours et -1 s'il attend que l'on lise son code de retour
-	pthread_t file_transfer = 0;
-	pthread_mutex_t mutex_thread_status = PTHREAD_MUTEX_INITIALIZER;	 // Initialisation du mutex (type "rapide")
-	struct TransferDetails data;
+	int thread_status = 0;			// 0 Si le thread n'est pas en cours, 1 s'il est en cours et -1 s'il attend que l'on lise son code de retour
+	pthread_t file_transfer = 0;	// Thread relatif au transfert de fichiers
+	pthread_mutex_t mutex_thread_status = PTHREAD_MUTEX_INITIALIZER;		// Initialisation du mutex (type "rapide") pour le vérouillage de "thread_status"
+	struct TransferDetails data;											// Structure servant pour le passage d'arguments au thread
 
-	int reset = 0;
-	char *char_ptr = NULL;
+	int reset = 0;															// variable servant à flush le flux stdin
+	char *char_ptr = NULL;													// variable servant à chercher un caractère dans un tableau de caractères
 
 	int i = 0;
 	int j = 0;
-	int success = 0;
+	int success = 0;														// Booléen servant dans des boucles while
 
 	if (argc != 2)
 	{
@@ -50,21 +39,23 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
+	memset(&data, 0, sizeof(data));											// Initialisation de la structure en mettant tous les bits à 0
+
 	port = atoi(argv[1]);
 
-	passive_server_sock = listenSocket(port);		//ouverture du serveur
+	passive_server_sock = listenSocket(port);		// Le serveur commence à écouter sur sa socket passive
 	max_fd = passive_server_sock;
 
-	printf("\nServeur opérationnel\n\n");
+	printf("Le serveur est opérationnel\nEn attente de la connexion d'un client...\n");
 
-	while(TRUE)
+	while(TRUE)										// Boucle du programme (écoute perpétuelle des sockets)
 	{
 		FD_ZERO(&readfs);
-		FD_SET(passive_server_sock, &readfs);
-		FD_SET(STDIN_FILENO, &readfs);
+		FD_SET(passive_server_sock, &readfs);		// On va écouter la socket passive du serveur
+		FD_SET(STDIN_FILENO, &readfs);				// On va écouter l'entrée standard
 		for (i = 0; i < clients_nb; i++)
 		{
-			FD_SET(clients[i].msg_client_sock, &readfs);
+			FD_SET(clients[i].msg_client_sock, &readfs);	// Pour chaque client, on écoute sa socket relative au messages
 		}
 
 		if((selector = select(max_fd + 1, &readfs, NULL, NULL, NULL)) < 0)
@@ -73,24 +64,28 @@ int main(int argc, char *argv[])
 			exit(errno);
 		}
 
+		/* Ci-après, on tente le vérouillage du mutex */
+
 		if (pthread_mutex_trylock(&mutex_thread_status) != EBUSY)
 		{
-			if (thread_status == -1)
+			/* On a réussi à vérouiller, on peut donc accéder à la variable "thread_status" */
+			if (thread_status == -1)	// Si elle vaut -1, cela signifie que le thread est terminé et qu'il attend que l'on lise son code de retour
 			{
-				pthread_join(file_transfer, NULL);
-				thread_status = 0;
+				pthread_join(file_transfer, NULL);		// Lecture du code de retour
+				thread_status = 0;						// Le thread est terminé
 			}
-			pthread_mutex_unlock(&mutex_thread_status);
+			pthread_mutex_unlock(&mutex_thread_status);	// Déverouillage du mutex
 		}
 		
 		if(FD_ISSET(passive_server_sock, &readfs))
 		{
-			/* Des données sont disponibles sur la socket du serveur */
+			/* Des données sont disponibles sur la socket passive du serveur */
 
-			/* Même si clients_nb est modifié par la fonction, c'est toujours l'ancienne valeur qui est prise en compte lors de l'affectation */
+			/* Même si clients_nb est modifié par la fonction, c'est toujours l'ancienne valeur qui est prise en compte lors de l'affectation suivante */
 			clients[clients_nb] = newClient(passive_server_sock, &clients_nb, &max_fd);
-			//verification que le pseudo est different des autres
-			success = TRUE;
+			
+			/* Vérification que le pseudo est différent des autres clients connectés */
+			success = TRUE;	// Initialisation d'un booléen représentant le succès de la connexion du nouveau client
 			for (i = 0; i < clients_nb-1 && success; i++)
 			{
 				if (!strcmp(clients[i].username, clients[clients_nb-1].username))
@@ -98,16 +93,14 @@ int main(int argc, char *argv[])
 					success = FALSE;
 				}
 			}
-			//si le pseudo existe deja
-			if (!success)
+			if (!success)	// Si le pseudo existe déjà
 			{
 				sprintf(buffer, "%d", FALSE);
 				sendClient(clients[clients_nb-1].msg_client_sock, buffer, strlen(buffer)+1);
-				recvClient(clients[i].msg_client_sock, buffer, sizeof(buffer));				// Accusé de réception pour la synchronisation
-				rmvClient(clients, clients_nb-1, &clients_nb, &max_fd, passive_server_sock);
+				recvClient(clients[i].msg_client_sock, buffer, sizeof(buffer));					// Accusé de réception pour la synchronisation
+				rmvClient(clients, clients_nb-1, &clients_nb, &max_fd, passive_server_sock);	// Déconnexion du client en question
 			}
-			//si le pseudo n'existe pas
-			if (success)
+			if (success)	// Si le pseudo n'existe pas
 			{
 				sprintf(buffer, "%d", TRUE);
 				sendClient(clients[clients_nb-1].msg_client_sock, buffer, strlen(buffer)+1);
@@ -118,7 +111,7 @@ int main(int argc, char *argv[])
 				strcpy(buffer, formatting_buffer);
 				sendClient(clients[clients_nb-1].msg_client_sock, buffer, strlen(buffer)+1);
 				
-				sprintf(formatting_buffer, "%s s'est connecté", clients[clients_nb-1].username);
+				sprintf(formatting_buffer, "%s s'est connecté(e)", clients[clients_nb-1].username);
 				formatting_buffer[BUFFER_SIZE-1] = '\0';
 				printf("%s\n", formatting_buffer);
 				sendToOther(clients, formatting_buffer, clients_nb-1, clients_nb);
@@ -129,10 +122,11 @@ int main(int argc, char *argv[])
 		{
 			if(FD_ISSET(clients[i].msg_client_sock, &readfs))
 			{
-				/* Des données sont disponibles sur une des sockets clients */
+				/* Des données sont disponibles sur la socket relative aux messages d'un des clients */
 
 				if (!recvClient(clients[i].msg_client_sock, buffer, sizeof(buffer)))
 				{
+					/* Le client s'est déconnecté */
 					strcpy(formatting_buffer, "Déconnexion de ");
 					strcat(formatting_buffer, clients[i].username);
 					formatting_buffer[BUFFER_SIZE-1] = '\0';
@@ -141,13 +135,14 @@ int main(int argc, char *argv[])
 					sendToOther(clients, buffer, i, clients_nb);
 					rmvClient(clients, i, &clients_nb, &max_fd, passive_server_sock);
 				}
-				else if (!strncmp(buffer, "/sendto", 7))		// ATTENTION ! strncmp renvoie 0 si les deux chaînes sont égales !
+				else if (!strncmp(buffer, "/sendto", 7))		// ATTENTION ! strncmp et strcmp renvoient 0 si les deux chaînes sont égales !
 				{
 					if (pthread_mutex_trylock(&mutex_thread_status) == EBUSY)
 					{
+						/* La tentative de vérouillage du mutex a échoué */
 						printf("< FTS > Un transfert est déjà en cours, patientez...\n");
 						sprintf(buffer, "%d", -2);
-						sendClient(clients[i].file_client_sock, buffer, strlen(buffer)+1);
+						sendClient(clients[i].file_client_sock, buffer, strlen(buffer)+1);	// On pense tout de même à répondre au client émetteur
 					}
 					else
 					{
@@ -157,76 +152,83 @@ int main(int argc, char *argv[])
 							sprintf(buffer, "%d", -2);
 							sendClient(clients[i].file_client_sock, buffer, strlen(buffer)+1);
 						}
-						else if (thread_status == -1)
+						else if (thread_status == -1)	// Le thread attend que l'on lise son code de retour
 						{
 							pthread_join(file_transfer, NULL);
 							thread_status = 0;
 						}
-						if (thread_status == 0)				// Pas de else car thread_status pourrait être modifié par le if précédent
+						if (thread_status == 0)			// Pas de else car thread_status pourrait être modifié par le if précédent
 						{
-							index = getClient(clients, clients_nb, buffer);
+							index = getClient(clients, clients_nb, buffer);		// Récupération de l'indice du client destinataire
 							if (index == -1)
 							{
+								/* On signale au client émetteur que le pseudo de la requête "/sendto" ne
+								correspond pas à un client connecté */
 								sprintf(buffer, "%d", index);
 								sendClient(clients[i].file_client_sock, buffer, strlen(buffer)+1);
 							}
 							else
 							{
-								strcpy(request, buffer);
+								strcpy(request, buffer);					// On utilise une variable annexe pour stocker la requête pendant le transfert
+
+								/* Affectation de la structure à passer en argument par adresse au thread relatif au transfert */
 								data.sending_client = clients[i];
 								data.receiving_client = clients[index];
 								data.request = request;
 								data.thread_status = &thread_status;
 								data.mutex_thread_status = &mutex_thread_status;
 
-								thread_status = 1;
+								thread_status = 1;					// thread_status change de valeur pour indiquer qu'un thread de transfert est en cours
 								if (pthread_create(&file_transfer, NULL, transferControl, &data) != 0)
 								{
 									fprintf(stderr, "< FTS > Le du transfert a échoué\n");
+									sprintf(buffer, "%d", -2);
+									sendClient(clients[i].file_client_sock, buffer, strlen(buffer)+1);	// On pense tout de même à répondre au client émetteur
 									thread_status = 0;
-									//todo envoyer un abort au client expéditeur
 								}
 							}
 						}
-						pthread_mutex_unlock(&mutex_thread_status);
+						pthread_mutex_unlock(&mutex_thread_status);		// On n'oublie pas de déverouiller le mutex !
 					}
 				}
-				//si la requete du client est /list on lui envoit les clients connectés
-				else if(!strcmp(buffer, "/list"))
+				else if(!strcmp(buffer, "/list"))		// Si la requête du client est "/list" on lui envoie la liste des clients connectés
 				{
-					printf("%s : /list\n", clients[i].username);
-					strcpy(buffer, "Les clients connectés sont : ");
+					printf("%s : /list\n", clients[i].username);	// Affichage d'une trace sur le terminal du serveur
+					strcpy(formatting_buffer, "Les clients connectés sont : ");
 					for (j = 0; j < clients_nb; j++)
 					{
 						if(j != i)
 						{
-							strcat(buffer, clients[j].username);
+							strcat(formatting_buffer, clients[j].username);
 						}
 						else
 						{
-							strcat(buffer, "vous");
+							strcat(formatting_buffer, "vous");
 						}
-							
-						strcat(buffer, ", ");
+						if (j != clients_nb-1)
+						{
+							strcat(formatting_buffer, ", ");
+						}
 					}
+					formatting_buffer[BUFFER_SIZE-1] = '\0';
+					strcpy(buffer, formatting_buffer);
 					sendClient(clients[i].msg_client_sock, buffer, strlen(buffer)+1);
 				}
-				// Si l'on reçoit une commande du type /abort
-				else if (!strcmp(buffer, "/abort"))		
+				else if (!strcmp(buffer, "/abort"))		// Si l'on reçoit une commande du type /abort
 				{
-					/* On n'a pas besoin de faire de test car le /abort ne peut être envoyé par l'utilisateur */
+					/* On n'a pas besoin de faire de test car le "/abort" ne peut être envoyé volontairement par l'utilisateur */
 					/* En effet, seulement le thread relatif au transfert, s'il rencontre un problème peut être amené à générer une telle requête */
 
-					if (!strcmp(clients[i].username, data.receiving_client.username))
+					if (!strcmp(clients[i].username, data.receiving_client.username))	// C'est le destinataire qui a rencontré un problème
 					{
 						sendClient(data.sending_client.msg_client_sock, buffer, strlen(buffer)+1);
 					}
-					else
+					else																// C'est l'émetteur qui a rencontré un problème
 					{
 						sendClient(data.receiving_client.msg_client_sock, buffer, strlen(buffer)+1);
 					}
 				}
-				else	// Ce qui se trouvait dans le buffer du client est tout de même envoyé pour le chat, d'où le "else"
+				else	// Ce qui se trouvait dans le buffer du client est envoyé pour le chat s'il ne correpond à aucun des cas précedents, d'où le "else"
 				{
 					strcpy(formatting_buffer, "");
 					strcpy(formatting_buffer, clients[i].username);
@@ -239,7 +241,7 @@ int main(int argc, char *argv[])
 				}
 			}
 		}
-		//ecoute de l'entrée standart
+
 		if(FD_ISSET(STDIN_FILENO, &readfs))
 		{
 			/* Des données sont disponibles sur l'entrée standard */
@@ -250,11 +252,14 @@ int main(int argc, char *argv[])
 				exit(errno);
 			}
 
+			/* Suppression du saut de ligne final */
 			char_ptr = strchr(buffer, '\n');
 			if (char_ptr != NULL)
 			{
 				*char_ptr = '\0';
 			}
+
+			/* On flush le flux stdin */
 			else
 			{
 				while (reset != '\n' && reset != EOF)
@@ -262,24 +267,38 @@ int main(int argc, char *argv[])
 					reset = getchar();
 				}
 			}
+			reset = 0;
 
-			if (!strcmp(buffer, "/abort"))		// "Si l'utilisateur entre une commande du type /abort"	
+			if (!strcmp(buffer, "/abort"))		// Si on entre une commande du type "/abort"	
 			{
-				if (pthread_mutex_trylock(&mutex_thread_status) != EBUSY)
+				if (pthread_mutex_trylock(&mutex_thread_status) != EBUSY)	// On tente de vérouiller le mutex
 				{
-					fprintf(stderr, "< FTS > Aucun transfert n'est en cours, commande annulée\n\n");
-					pthread_mutex_unlock(&mutex_thread_status);
+					/* On a réussi à vérouiller donc aucun transfert n'est en cours */
+					printf("< FTS > Aucun transfert n'est en cours, commande annulée\n\n");
+					pthread_mutex_unlock(&mutex_thread_status);				// On n'oublie pas de déverouiller le mutex
 				}
 				else
 				{
 					sendClient(data.sending_client.msg_client_sock, buffer, strlen(buffer)+1);
 					sendClient(data.receiving_client.msg_client_sock, buffer, strlen(buffer)+1);
 					printf("< FTS > Transfert annulé avec succès !\n");
+					printf("        Le serveur va s'arrêter !\n");
+					sleep(1);
+
+					/* On ferme toutes les sockets */
+					close(passive_server_sock);
+					for (i = 0; i < clients_nb; i++)
+					{
+						close(clients[i].msg_client_sock);
+						close(clients[i].file_client_sock);
+					}
+					exit(EXIT_FAILURE);
+					/* On ne peut pas kill le thread car ce dernier a vérouillé le mutex, on est donc obligé d'arrêter complétement le serveur */
 				}
 			}
-			else if (!strcmp(buffer, "/quit"))		// "Si l'utilisateur entre une commande du type /quit"	
+			else if (!strcmp(buffer, "/quit"))		// Si on entre une commande du type "/quit"	
 			{
-				//on close tous les sockets
+				/* On ferme toutes les sockets */
 				close(passive_server_sock);
 				for (i = 0; i < clients_nb; i++)
 				{
@@ -290,24 +309,23 @@ int main(int argc, char *argv[])
 				printf("\n\nDéconnexion réussie\n");
 				exit(EXIT_SUCCESS);
 			}
-			//si /kick ... on déconnecte le client demandé
-			else if(!strncmp(buffer, "/kick", 5))
+			else if(!strncmp(buffer, "/kick", 5))	// Si on entre une commande du type "/kick <username>", on déconnecte le client demandé
 			{
-				//pour récuperer le pseudo rentré en deuxième parametre
+				/* Récupération du pseudo entré en deuxième paramètre */
 				username = strtok(buffer, " ");
 				username = strtok(NULL, " ");
 				if (username != NULL)
 				{	
 					success = 0;
 					username[USERNAME_SIZE - 1] = '\0';
-					//on cherche le client en comparant avec la liste des pseudos
+					/* On cherche le client en comparant avec la liste des pseudos connus */
 					for(i = 0; i < clients_nb; i++)
 					{
 						if(strcmp(clients[i].username, username) == 0)
 						{
 							rmvClient(clients, i, &clients_nb, &max_fd, passive_server_sock);
-							printf("%s déconnecté avec succès\n", username);
-							sprintf(formatting_buffer, "%s a été déconnecté \n", username);
+							printf("%s déconnecté(e) avec succès\n", username);
+							sprintf(formatting_buffer, "%s a été déconnecté(e) \n", username);
 							formatting_buffer[BUFFER_SIZE-1] = '\0';
 							strcpy(buffer, formatting_buffer);
 							sendToAll(clients, buffer, clients_nb);
@@ -315,8 +333,7 @@ int main(int argc, char *argv[])
 						}
 					}
 
-					//verifie que le client a bien été deconnecté
-					if(success == 0)
+					if(!success)	// Vérification de la déconnexion effective du client
 					{
 						printf("Le client n'existe pas !\n");
 					}
@@ -326,10 +343,9 @@ int main(int argc, char *argv[])
 					printf("Veuillez rentrer un pseudo après /kick!\n");
 				}
 			}
-			//si /list on liste les clients connectés
-			else if(!strncmp(buffer, "/list", 5))
+			else if(!strncmp(buffer, "/list", 5))	// Si on entre une commande de type "/list", on liste les clients connectés
 			{
-				printf("\nVoici les clients connectés : \n");
+				printf("\nVoici les clients connectés :\n");
 				for (i = 0; i < clients_nb; i++)
 				{
 					printf("%s\n", clients[i].username);

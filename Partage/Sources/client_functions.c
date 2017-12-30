@@ -175,15 +175,15 @@ void *transferSendControl(void *src_data)
 	{
 		if (i == package_number / 4 && package_number >= 500000)
 		{
-			writeInConv("< FTS > Le transfert en est à 25%", data->conversation, data->line, data->top_win, data->bottom_win);
+			writeInConv("< FTS > Le transfert en est à 25%%", data->conversation, data->line, data->top_win, data->bottom_win);
 		}
 		else if (i == package_number / 2 && package_number >= 500000)
 		{
-			writeInConv("< FTS > Le transfert en est à 50%", data->conversation, data->line, data->top_win, data->bottom_win);
+			writeInConv("< FTS > Le transfert en est à 50%%", data->conversation, data->line, data->top_win, data->bottom_win);
 		}
 		else if (i == (package_number / 4)*3 && package_number >= 500000)
 		{
-			writeInConv("< FTS > Le transfert en est à 75%", data->conversation, data->line, data->top_win, data->bottom_win);
+			writeInConv("< FTS > Le transfert en est à 75%%", data->conversation, data->line, data->top_win, data->bottom_win);
 		}
 		
 		fread(buffer, BUFFER_SIZE, 1, f);
@@ -247,39 +247,37 @@ void *transferRecvControl(void *src_data)
 	*char_ptr = '\0';
 	package_number = atoi(buffer);
 	residue_size = atoi(char_ptr + 1);
-	buffer[0] = -1;
+	buffer[0] = -1;										// On met tous les bits à 1 pour le premier octet
 	sendServer(data->file_server_sock, buffer, 1);		// Accusé de réception pour la synchronisation
 
 	for (i = 0; i < package_number; i++)
 	{
 		if (i == package_number / 4 && package_number >= 500000)
 		{
-			writeInConv("< FTS > Le transfert en est à 25%", data->conversation, data->line, data->top_win, data->bottom_win);
+			writeInConv("< FTS > Le transfert en est à 25%%", data->conversation, data->line, data->top_win, data->bottom_win);
 		}
 		else if (i == package_number / 2 && package_number >= 500000)
 		{
-			writeInConv("< FTS > Le transfert en est à 50%", data->conversation, data->line, data->top_win, data->bottom_win);
+			writeInConv("< FTS > Le transfert en est à 50%%", data->conversation, data->line, data->top_win, data->bottom_win);
 		}
 		else if (i == (package_number / 4)*3 && package_number >= 500000)
 		{
-			writeInConv("< FTS > Le transfert en est à 75%", data->conversation, data->line, data->top_win, data->bottom_win);
+			writeInConv("< FTS > Le transfert en est à 75%%", data->conversation, data->line, data->top_win, data->bottom_win);
 		}
 		
 		recvServer(data->file_server_sock, buffer, sizeof(buffer));
 		fwrite(buffer, sizeof(buffer), 1, f);
 
-		buffer[0] = -1;
-		/* Accusé de réception (pour la synchronisation) */
-		sendServer(data->file_server_sock, buffer, 1);
+		buffer[0] = -1;									// On met tous les bits à 1 pour le premier octet
+		sendServer(data->file_server_sock, buffer, 1);	// Accusé de réception pour la synchronisation
 	}
 	if (residue_size != 0)
 	{
 		recvServer(data->file_server_sock, buffer, sizeof(buffer));
 		fwrite(buffer, residue_size, 1, f);
 
-		buffer[0] = -1;
-		/* Accusé de réception (pour la synchronisation) */
-		sendServer(data->file_server_sock, buffer, 1);
+		buffer[0] = -1;									// On met tous les bits à 1 pour le premier octet
+		sendServer(data->file_server_sock, buffer, 1);	// Accusé de réception pour la synchronisation
 	}
 
 	fclose(f);

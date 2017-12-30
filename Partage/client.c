@@ -20,8 +20,8 @@ int main(int argc, char *argv[])
 	-> L'adresse IP du serveur
 	-> Le port du serveur */
 
-	char buffer[BUFFER_SIZE] = "";			// Buffer de 1024 octets pour l'envoi ou la réception de paquets à travers le réseau
-	char msg_buffer[BUFFER_SIZE] = "";	// Buffer de 1024 octets pour les messages qu'entre l'utilisateur caractère parcaractère
+	char buffer[BUFFER_SIZE] = "";			// Buffer de 1024 octets pour la réception des messages à travers le réseau
+	char msg_buffer[BUFFER_SIZE] = "";		// Buffer de 1024 octets pour les messages qu'entre l'utilisateur caractère par caractère
 	char path[PATH_SIZE] = "";
 	char dest_username[USERNAME_SIZE] = "";
 	WINDOW *top_win, *bottom_win;
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "< FERROR > Le pseudonyme est déjà utilisé par un autre utilisateur\n");
 		close(msg_server_sock);
 		close(file_server_sock);
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 	buffer[0] = -1;												// Accusé de réception (pour la synchronisation)
 	sendServer(msg_server_sock, buffer, 1);
