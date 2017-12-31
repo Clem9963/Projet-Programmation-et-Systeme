@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
 							{
 								writeInConv("< FTS > Le démarrage de la réception a échoué", conversation, &line, top_win, bottom_win);
 								strcpy(buffer, "/abort");
-								sendServer(data->msg_server_sock, buffer, strlen(buffer)+1);	// Envoi d'une requête de type "/abort"
+								sendServer(msg_server_sock, buffer, strlen(buffer)+1);	// Envoi d'une requête de type "/abort"
 								thread_status = 0;
 							}
 						}
@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
 									{
 										writeInConv("< FTS > Le démarrage de l'envoi a échoué", conversation, &line, top_win, bottom_win);
 										strcpy(buffer, "/abort");
-										sendServer(data->msg_server_sock, buffer, strlen(buffer)+1);	// Envoi d'une requête de type "/abort"
+										sendServer(msg_server_sock, buffer, strlen(buffer)+1);	// Envoi d'une requête de type "/abort"
 										thread_status = 0;
 									}
 								}
