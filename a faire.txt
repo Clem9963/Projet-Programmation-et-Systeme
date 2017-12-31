@@ -1,4 +1,2 @@
-ameliorations :
-- suppression des headers en trop
+﻿ameliorations :
 - résoudre des bugs d'affichage
-- ajout dans le compte rendu des explications de < FTS > et < FERROR > et < ERROR >
