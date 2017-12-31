@@ -137,10 +137,11 @@ int main(int argc, char *argv[])
 				}
 				else if (!strncmp(buffer, "/sendto", 7))		// ATTENTION ! strncmp et strcmp renvoient 0 si les deux chaînes sont égales !
 				{
+					printf("< FTS > %s a envoyé une requête /sendto...\n", clients[i].username);
 					if (pthread_mutex_trylock(&mutex_thread_status) == EBUSY)
 					{
 						/* La tentative de vérouillage du mutex a échoué */
-						printf("< FTS > Un transfert est déjà en cours, patientez...\n");
+						printf("< FTS > Un transfert est déjà en cours, requête annulée\n");
 						sprintf(buffer, "%d", -2);
 						sendClient(clients[i].file_client_sock, buffer, strlen(buffer)+1);	// On pense tout de même à répondre au client émetteur
 					}
@@ -148,7 +149,7 @@ int main(int argc, char *argv[])
 					{
 						if (thread_status == 1)
 						{
-							printf("< FTS > Un transfert est déjà en cours, patientez...\n");
+							printf("< FTS > Un transfert est déjà en cours, requête annulée\n");
 							sprintf(buffer, "%d", -2);
 							sendClient(clients[i].file_client_sock, buffer, strlen(buffer)+1);
 						}
@@ -164,6 +165,7 @@ int main(int argc, char *argv[])
 							{
 								/* On signale au client émetteur que le pseudo de la requête "/sendto" ne
 								correspond pas à un client connecté */
+								printf("< FTS > La requête est non conforme (nom du destinataire inconnu)\n");
 								sprintf(buffer, "%d", index);
 								sendClient(clients[i].file_client_sock, buffer, strlen(buffer)+1);
 							}
@@ -181,7 +183,7 @@ int main(int argc, char *argv[])
 								thread_status = 1;					// thread_status change de valeur pour indiquer qu'un thread de transfert est en cours
 								if (pthread_create(&file_transfer, NULL, transferControl, &data) != 0)
 								{
-									fprintf(stderr, "< FTS > Le du transfert a échoué\n");
+									fprintf(stderr, "< FTS > Le démarrage du transfert a échoué\n");
 									sprintf(buffer, "%d", -2);
 									sendClient(clients[i].file_client_sock, buffer, strlen(buffer)+1);	// On pense tout de même à répondre au client émetteur
 									thread_status = 0;

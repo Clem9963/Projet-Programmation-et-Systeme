@@ -90,7 +90,7 @@ int answerSendingRequest(char *request, char *path, char **conversation, int *li
 	{
 		sprintf(msg_buffer, "< FTS > Quelqu'un souhaite vous envoyer le fichier %s mais il existe déjà", file_name);
 		writeInConv(msg_buffer, conversation, line, top_win, bottom_win);
-		sprintf(msg_buffer, "(%s)", path);
+		sprintf(msg_buffer, "        (%s)", path);
 		writeInConv(msg_buffer, conversation, line, top_win, bottom_win);
 		fclose(f);	// On n'oublie pas de fermer le fichier
 		return 0;
