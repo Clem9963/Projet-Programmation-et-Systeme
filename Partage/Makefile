@@ -50,4 +50,4 @@ clean:
 # Suppression de tous les fichiers, sauf les sources, en vue d'une reconstruction complète
 
 mrproper: clean
-	rm -rf executable
+	rm -rf server.bin client.bin
