@@ -255,6 +255,10 @@ int main(int argc, char *argv[])
 
 				else if (!strncmp(msg_buffer, "/sendto", 7))
 				{
+					werase(bottom_win);
+					convRefresh(top_win, bottom_win);
+					move(LINES - 2, 4); //on se remet au debut de la ligne du message
+	        
 					if (pthread_mutex_trylock(&mutex_thread_status) == EBUSY)
 					{
 						writeInConv("< FTS > Un transfert est déjà en cours, patientez...", conversation, &line, top_win, bottom_win);

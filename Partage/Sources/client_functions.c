@@ -70,7 +70,13 @@ int answerSendingRequest(char *request, char *path, char **conversation, int *li
 		{
 			werase(bottom_win);					// On efface le message entamé pour attendre la réponse d'acceptation de la réception
 			convRefresh(top_win, bottom_win);	// Rafraichissement de l'interface
+			move(LINES - 2, 4);
 			getnstr(buffer, 1);					// Récupération de la saisie
+			
+			// On rééfface juste après avoir récupéré la saisie
+			werase(bottom_win);
+			convRefresh(top_win, bottom_win);
+			move(LINES - 2, 4);
 
 			answer = atoi(buffer);
 			
